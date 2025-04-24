@@ -1,0 +1,11 @@
+{
+    "name": "Compiler HW1",
+    "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+    "postCreateCommand": "sudo apt update && sudo apt install -y flex bison build-essential",
+    "customizations": {
+      "vscode": {
+        "extensions": ["ms-vscode.cpptools"]
+      }
+    }
+  }
+  

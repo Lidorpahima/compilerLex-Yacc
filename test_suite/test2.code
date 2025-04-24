@@ -1,0 +1,11 @@
+def sum(int a, b)->int: {
+  int result;
+  result = a + b;
+  return result;
+}
+
+def __main__(): {
+  int total;
+  total = sum(3, 4);
+  return;
+}
