@@ -5,6 +5,7 @@
 #include <string.h>
 int lineno = 1;
 Node* ast_root = NULL;
+int main_function_defined = 0;
 void yyerror(const char* s) {
     fprintf(stderr, "ERROR IN LINE %d: %s\n", lineno, s);
 }
@@ -42,6 +43,29 @@ program:
     function_list {
         ast_root = $1;
         $$ = $1;
+    }
+;
+function:
+    DEF ID LPAREN parameters RPAREN ARROW type COLON block {
+        if (strcmp($2, "__main__") == 0) {
+            if (main_function_defined) {
+                yyerror("Function '__main__' is already defined.");
+                YYABORT;
+            }
+            if ($4 != NULL) { // בדיקה אם יש פרמטרים
+                yyerror("Function '__main__' must not take arguments.");
+                YYABORT;
+            }
+            if (strcmp($7->value, "void") != 0) { // בדיקה אם מחזירה void
+                yyerror("Function '__main__' must return void.");
+                YYABORT;
+            }
+            main_function_defined = 1; // מסמנים ש-main הוגדרה
+        }
+        $$ = make_node("FUNC_TYPED", 4, make_node($2, 0), $4, $7, $9);
+    }
+  | DEF ID LPAREN parameters RPAREN COLON block {
+        $$ = make_node("FUNC", 3, make_node($2, 0), $4, $7);
     }
 ;
 
