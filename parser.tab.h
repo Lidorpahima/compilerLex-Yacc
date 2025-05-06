@@ -61,33 +61,36 @@ extern int yydebug;
     WHILE = 267,
     RETURN = 268,
     PASS = 269,
-    INT = 270,
-    FLOAT = 271,
-    BOOL = 272,
-    STRING = 273,
-    GE = 274,
-    LE = 275,
-    EQ = 276,
-    NE = 277,
-    GT = 278,
-    LT = 279,
-    ASSIGN = 280,
-    PLUS = 281,
-    MINUS = 282,
-    TIMES = 283,
-    DIVIDE = 284,
-    POW = 285,
-    SEMICOLON = 286,
-    COLON = 287,
-    COMMA = 288,
-    LBRACE = 289,
-    RBRACE = 290,
-    LPAREN = 291,
-    RPAREN = 292,
-    LBRACKET = 293,
-    RBRACKET = 294,
-    ARROW = 295,
-    UMINUS = 296
+    AND = 270,
+    OR = 271,
+    NOT = 272,
+    INT = 273,
+    FLOAT = 274,
+    BOOL = 275,
+    STRING = 276,
+    GE = 277,
+    LE = 278,
+    EQ = 279,
+    NE = 280,
+    GT = 281,
+    LT = 282,
+    ASSIGN = 283,
+    PLUS = 284,
+    MINUS = 285,
+    TIMES = 286,
+    DIVIDE = 287,
+    POW = 288,
+    SEMICOLON = 289,
+    COLON = 290,
+    COMMA = 291,
+    LBRACE = 292,
+    RBRACE = 293,
+    LPAREN = 294,
+    RPAREN = 295,
+    LBRACKET = 296,
+    RBRACKET = 297,
+    ARROW = 298,
+    UMINUS = 299
   };
 #endif
 
@@ -95,12 +98,12 @@ extern int yydebug;
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 14 "parser.y"
+#line 16 "parser.y"
 
     Node* node;
     char* str;
 
-#line 104 "parser.tab.h"
+#line 107 "parser.tab.h"
 
 };
 typedef union YYSTYPE YYSTYPE;

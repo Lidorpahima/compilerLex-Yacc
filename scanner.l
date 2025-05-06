@@ -27,6 +27,9 @@ string_lit  \"([^\"\n]*)\"|\'([^\'\n]*)\'
 "float"      { return FLOAT; }
 "bool"       { return BOOL; }
 "string"     { return STRING; }
+"and"        { return AND; }
+"or"         { return OR; }
+"not"        { return NOT; }
 "True"       { yylval.str = strdup(yytext); return BOOL_LITERAL; }
 "False"      { yylval.str = strdup(yytext); return BOOL_LITERAL; }
 
