@@ -21,7 +21,7 @@ void yyerror(const char* s) {
 %token <str> ID INT_LITERAL FLOAT_LITERAL STR_LITERAL BOOL_LITERAL
 %token DEF IF ELIF ELSE WHILE RETURN PASS AND OR NOT
 %token INT FLOAT BOOL STRING
-%token GE LE EQ NE GT LT ASSIGN
+%token GE LE EQ NE GT LT ASSIGN IS
 %token PLUS MINUS TIMES DIVIDE POW
 %token SEMICOLON COLON COMMA
 %token LBRACE RBRACE LPAREN RPAREN LBRACKET RBRACKET
@@ -30,7 +30,7 @@ void yyerror(const char* s) {
 %left OR
 %left AND
 %right NOT
-%left EQ NE GE LE GT LT
+%left EQ NE GE LE GT LT IS
 %left PLUS MINUS
 %left TIMES DIVIDE
 %right POW
@@ -123,7 +123,13 @@ type:
 ;
 
 block:
-    LBRACE declarations statements RBRACE { $$ = make_node("BLOCK", 2, $2, $3); }
+    LBRACE declarations statements RBRACE { 
+        if (strcmp($2->name, "DECLS_EMPTY") == 0 && strcmp($3->name, "STMTS_EMPTY") == 0) {
+            yyerror("Empty blocks {} are not allowed");
+            YYERROR;
+        }
+        $$ = make_node("BLOCK", 2, $2, $3); 
+    }
 ;
 
 declarations:
@@ -253,6 +259,7 @@ expression:
   | expression LE expression { $$ = make_node("<=", 2, $1, $3); }
   | expression GT expression { $$ = make_node(">", 2, $1, $3); }
   | expression LT expression { $$ = make_node("<", 2, $1, $3); }
+  | expression IS expression { $$ = make_node("IS", 2, $1, $3); }
   | expression PLUS expression { $$ = make_node("+", 2, $1, $3); }
   | expression MINUS expression { $$ = make_node("-", 2, $1, $3); }
   | expression TIMES expression { $$ = make_node("*", 2, $1, $3); }

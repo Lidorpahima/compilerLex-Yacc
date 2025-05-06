@@ -75,22 +75,23 @@ extern int yydebug;
     GT = 281,
     LT = 282,
     ASSIGN = 283,
-    PLUS = 284,
-    MINUS = 285,
-    TIMES = 286,
-    DIVIDE = 287,
-    POW = 288,
-    SEMICOLON = 289,
-    COLON = 290,
-    COMMA = 291,
-    LBRACE = 292,
-    RBRACE = 293,
-    LPAREN = 294,
-    RPAREN = 295,
-    LBRACKET = 296,
-    RBRACKET = 297,
-    ARROW = 298,
-    UMINUS = 299
+    IS = 284,
+    PLUS = 285,
+    MINUS = 286,
+    TIMES = 287,
+    DIVIDE = 288,
+    POW = 289,
+    SEMICOLON = 290,
+    COLON = 291,
+    COMMA = 292,
+    LBRACE = 293,
+    RBRACE = 294,
+    LPAREN = 295,
+    RPAREN = 296,
+    LBRACKET = 297,
+    RBRACKET = 298,
+    ARROW = 299,
+    UMINUS = 300
   };
 #endif
 
@@ -103,7 +104,7 @@ union YYSTYPE
     Node* node;
     char* str;
 
-#line 107 "parser.tab.h"
+#line 108 "parser.tab.h"
 
 };
 typedef union YYSTYPE YYSTYPE;

@@ -32,6 +32,7 @@ string_lit  \"([^\"\n]*)\"|\'([^\'\n]*)\'
 "not"        { return NOT; }
 "True"       { yylval.str = strdup(yytext); return BOOL_LITERAL; }
 "False"      { yylval.str = strdup(yytext); return BOOL_LITERAL; }
+"is"         { return IS; }
 
 ">="         { return GE; }
 "<="         { return LE; }
