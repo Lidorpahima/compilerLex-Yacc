@@ -8,6 +8,18 @@ int lineno = 1;
 Node* ast_root = NULL;
 extern int yylex(void);
 
+int main_count = 0;
+
+void clear_all_symbols() {
+    if (function_table) {
+        free_symbol_table(function_table);
+        function_table = NULL;
+    }
+    while (var_scope_stack) {
+        pop_scope();
+    }
+}
+
 void yyerror(const char* s) {
     fprintf(stderr, "Syntax Error on line %d: %s\n", lineno, s);
 }
@@ -39,7 +51,7 @@ void yyerror(const char* s) {
 %start program
 
 %type <node> program function_list function func_body
-%type <node> parameters param_groups param_group param_id_list plain_param_ids defaulted_param_ids default_param_decl literal
+%type <node> parameters param_list param literal
 %type <node> type block declarations declaration var_decl_list var_spec
 %type <node> statements statement simple_statement compound_statement suite
 %type <node> assignment assignable assignable_list expression_list function_call_stmt function_call args arg_list
@@ -52,19 +64,47 @@ program:
     function_list {
         ast_root = $1;
         $$ = $1;
+        clear_all_symbols();
     }
 ;
 
 function_list:
-    function { $$ = make_node("FUNC_LIST", 1, $1); }
-  | function_list function { $$ = make_node("FUNC_LIST", 2, $1, $2); }
+    function {
+        if (!add_symbol_ex(&function_table, $1->children[0]->children[0]->name, $1)) {
+            yyerror("Duplicate function name");
+            YYERROR;
+        }
+        $$ = make_node("FUNC_LIST", 1, $1);
+    }
+  | function_list function {
+        if (!add_symbol_ex(&function_table, $2->children[0]->children[0]->name, $2)) {
+            yyerror("Duplicate function name");
+            YYERROR;
+        }
+        $$ = make_node("FUNC_LIST", 2, $1, $2);
+    }
 ;
 
 function:
     DEF ID LPAREN parameters RPAREN ARROW type COLON func_body {
+        if (strcmp($2, "__main__") == 0) {
+            yyerror("__main__ must not have a return type");
+            YYERROR;
+        }
         $$ = make_node("FUNC_DEF_TYPED", 4, make_node("ID", 1, make_node($2,0)), $4, $7, $9);
     }
   | DEF ID LPAREN parameters RPAREN COLON func_body {
+        if (strcmp($2, "__main__") == 0) {
+            main_count++;
+            if (main_count > 1) {
+                yyerror("Multiple definitions of __main__ are not allowed");
+                YYERROR;
+            }
+            if (strcmp($4->name, "PARAMS_EMPTY") != 0) {
+                yyerror("__main__ must not have parameters");
+                YYERROR;
+            }
+        }
         $$ = make_node("FUNC_DEF", 3, make_node("ID", 1, make_node($2,0)), $4, $7);
     }
 ;
@@ -76,36 +116,19 @@ func_body:
 
 parameters:
     { $$ = make_node("PARAMS_EMPTY", 0); }
-  | param_groups { $$ = $1; }
+  | param_list { $$ = $1; }
 ;
 
-param_groups:
-    param_group { $$ = make_node("PARAM_GROUPS", 1, $1); }
-  | param_groups SEMICOLON param_group { $$ = make_node("PARAM_GROUPS", 2, $1, $3); }
+param_list:
+    param { $$ = make_node("PARAM_LIST", 1, $1); }
+  | param_list COMMA param { $$ = make_node("PARAM_LIST", 2, $1, $3); }
 ;
 
-param_group:
-    type param_id_list { $$ = make_node("PARAM_GROUP", 2, $1, $2); }
-;
-
-param_id_list:
-    plain_param_ids { $$ = $1; }
-  | defaulted_param_ids { $$ = $1; }
-  | plain_param_ids COMMA defaulted_param_ids { $$ = make_node("PARAM_LIST", 2, $1, $3); }
-;
-
-plain_param_ids:
-    ID { $$ = make_node("PARAM", 1, make_node("ID", 1, make_node($1,0))); }
-  | plain_param_ids COMMA ID { $$ = make_node("PARAM_LIST", 2, $1, make_node("PARAM", 1, make_node("ID", 1, make_node($3,0)))); }
-;
-
-defaulted_param_ids:
-    default_param_decl { $$ = $1; }
-  | defaulted_param_ids COMMA default_param_decl { $$ = make_node("PARAM_LIST", 2, $1, $3); }
-;
-
-default_param_decl:
-    ID COLON literal { $$ = make_node("PARAM_DEFAULT", 2, make_node("ID", 1, make_node($1,0)), $3); }
+param:
+    type ID ASSIGN literal { $$ = make_node("PARAM_DEFAULT", 3, $1, make_node("ID", 1, make_node($2,0)), $4); }
+  | type ID { $$ = make_node("PARAM", 2, $1, make_node("ID", 1, make_node($2,0))); }
+  | ID ASSIGN literal { $$ = make_node("PARAM_DEFAULT", 2, make_node("ID", 1, make_node($1,0)), $3); }
+  | ID { $$ = make_node("PARAM", 1, make_node("ID", 1, make_node($1,0))); }
 ;
 
 literal:
@@ -123,12 +146,15 @@ type:
 ;
 
 block:
-    LBRACE declarations statements RBRACE { 
-        if (strcmp($2->name, "DECLS_EMPTY") == 0 && strcmp($3->name, "STMTS_EMPTY") == 0) {
+    LBRACE {
+        push_scope();
+    } declarations statements RBRACE {
+        if (strcmp($3->name, "DECLS_EMPTY") == 0 && strcmp($4->name, "STMTS_EMPTY") == 0) {
             yyerror("Empty blocks {} are not allowed");
             YYERROR;
         }
-        $$ = make_node("BLOCK", 2, $2, $3); 
+        pop_scope();
+        $$ = make_node("BLOCK", 2, $3, $4);
     }
 ;
 
@@ -138,7 +164,30 @@ declarations:
 ;
 
 declaration:
-    type var_decl_list SEMICOLON { $$ = make_node("VAR_DECL", 2, $1, $2); }
+    type var_decl_list SEMICOLON {
+        Node* list = $2;
+        int error_found = 0;
+        void check_vars(Node* node) {
+            if (!node) return;
+            if (strcmp(node->name, "VAR") == 0 || strcmp(node->name, "VAR_INIT") == 0) {
+                Node* id_node = node->children[0];
+                if (id_node && strcmp(id_node->name, "ID") == 0) {
+                    char* varname = id_node->children[0]->name;
+                    if (!add_symbol(&var_scope_stack, varname)) {
+                        yyerror("Duplicate variable name in scope");
+                        error_found = 1;
+                    }
+                }
+            } else if (strcmp(node->name, "VAR_SPEC_LIST") == 0) {
+                for (int i = 0; i < node->child_count; i++) {
+                    check_vars(node->children[i]);
+                }
+            }
+        }
+        check_vars(list);
+        if (error_found) YYERROR;
+        $$ = make_node("VAR_DECL", 2, $1, $2);
+    }
 ;
 
 var_decl_list:
@@ -209,7 +258,50 @@ function_call_stmt:
 ;
 
 function_call:
-    ID LPAREN args RPAREN { $$ = make_node("CALL", 2, make_node("ID", 1, make_node($1,0)), $3); }
+    ID LPAREN args RPAREN {
+        if (!func_defined($1)) {
+            char err[256];
+            snprintf(err, sizeof(err), "Function '%s' called before declaration", $1);
+            yyerror(err);
+            YYERROR;
+        }
+        Symbol* f = function_table ? function_table->head : NULL;
+        Node* func_def = NULL;
+        while (f) {
+            if (strcmp(f->name, $1) == 0 && f->node) {
+                func_def = f->node;
+                break;
+            }
+            f = f->next;
+        }
+        if (!func_def) {
+            char err[256];
+            snprintf(err, sizeof(err), "Function '%s' definition not found for argument check", $1);
+            yyerror(err);
+            YYERROR;
+        }
+        Node* params = NULL;
+        if (strcmp(func_def->name, "FUNC_DEF_TYPED") == 0)
+            params = func_def->children[1];
+        else if (strcmp(func_def->name, "FUNC_DEF") == 0)
+            params = func_def->children[1];
+        int total=0, required=0;
+        count_params(params, &total, &required);
+        int nargs = count_args($3);
+        if (nargs > total) {
+            char err[256];
+            snprintf(err, sizeof(err), "Function '%s' called with too many arguments (%d > %d)", $1, nargs, total);
+            yyerror(err);
+            YYERROR;
+        }
+        if (nargs < required) {
+            char err[256];
+            snprintf(err, sizeof(err), "Function '%s' called with too few arguments (%d < %d)", $1, nargs, required);
+            yyerror(err);
+            YYERROR;
+        }
+        $$ = make_node("CALL", 2, make_node("ID", 1, make_node($1,0)), $3);
+    }
 ;
 
 args:
@@ -268,7 +360,15 @@ expression:
   | MINUS expression %prec UMINUS { $$ = make_node("UMINUS", 1, $2); }
   | LPAREN expression RPAREN { $$ = $2; }
   | literal { $$ = $1; }
-  | ID { $$ = make_node("VAR_USE", 1, make_node("ID", 1, make_node($1,0))); }
+  | ID {
+      if (!var_defined($1)) {
+        char err[256];
+        snprintf(err, sizeof(err), "Variable '%s' used before declaration", $1);
+        yyerror(err);
+        YYERROR;
+      }
+      $$ = make_node("VAR_USE", 1, make_node("ID", 1, make_node($1,0)));
+    }
   | string_access { $$ = $1; }
   | function_call { $$ = $1; }
 ;
@@ -310,5 +410,6 @@ int main() {
         fprintf(stderr, "Parsing failed.\n");
         return 1;
     }
+    clear_all_symbols();
     return 0;
 }

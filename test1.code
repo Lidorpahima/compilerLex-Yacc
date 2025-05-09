@@ -1,0 +1,37 @@
+def test1(int p1; string p20; float p2, p4:2.718; bool p3)->bool:
+{
+bool temp= False;
+if p2 <= p1 / 50 and p3 == temp:
+{
+temp = True;
+p1 = p1*100;
+p20= test2(3,p20,3.333);
+}
+else:
+p2 = 2.89;
+return temp;
+}
+# this is my comment
+def test2(int p1; string p2, p4:"abc"; float p3)->string:
+{
+string temp = 'z';
+if p3 == p1/5 and z != p4:
+temp = 'x';
+else:
+{
+temp = "y";
+p2 = temp;
+p3= (3 + 2) / 3 - 5 * 2;
+}
+if 45>5 and z == p4:
+{
+{
+{ }
+}
+}
+elif p2 is p1:
+{
+P1 = 50;
+}
+return temp;
+}
