@@ -274,3 +274,77 @@ void add_params_to_scope(Node* params) {
     }
     add(params);
 }
+
+// השגת טיפוס של ביטוי
+const char* get_expression_type(Node* expr) {
+    if (!expr) return NULL;
+    
+    // זיהוי טיפוס לפי סוג הביטוי
+    if (strcmp(expr->name, "LIT_INT") == 0) return "TYPE_INT";
+    if (strcmp(expr->name, "LIT_FLOAT") == 0) return "TYPE_FLOAT";
+    if (strcmp(expr->name, "LIT_STR") == 0) return "TYPE_STRING";
+    if (strcmp(expr->name, "LIT_BOOL") == 0) return "TYPE_BOOL";
+    if (strcmp(expr->name, "STRING_ACCESS") == 0) return "TYPE_STRING"; // גישה למחרוזת מחזירה מחרוזת
+    
+    // טיפול במשתנים
+    if (strcmp(expr->name, "VAR_USE") == 0 && expr->child_count > 0) {
+        const char* var_name = expr->children[0]->children[0]->name;
+        
+        // חיפוש המשתנה בסקופ
+        Symbol* s = NULL;
+        SymbolTable* scope = var_scope_stack;
+        while (scope && !s) {
+            Symbol* curr = scope->head;
+            while (curr) {
+                if (strcmp(curr->name, var_name) == 0) {
+                    s = curr;
+                    break;
+                }
+                curr = curr->next;
+            }
+            if (!s) scope = scope->parent;
+        }
+        
+        if (s && s->node) {
+            // טיפול בפרמטרים של פונקציה
+            if (strcmp(s->node->name, "PARAM") == 0) {
+                if (s->node->child_count >= 1)
+                    return s->node->children[0]->name;  // TYPE_*
+            }
+            else if (strcmp(s->node->name, "PARAM_DEFAULT") == 0) {
+                if (s->node->child_count >= 1)
+                    return s->node->children[0]->name;  // TYPE_*
+            }
+            // טיפול בהצהרת משתנה
+            else if (strcmp(s->node->name, "VAR_DECL") == 0) {
+                return s->node->children[0]->name;  // TYPE_*
+            }
+        }
+    }
+    
+    // ביטויים אריתמטיים
+    if (strcmp(expr->name, "+") == 0 || strcmp(expr->name, "-") == 0 ||
+        strcmp(expr->name, "*") == 0 || strcmp(expr->name, "/") == 0) {
+        const char* left_type = get_expression_type(expr->children[0]);
+        const char* right_type = get_expression_type(expr->children[1]);
+        
+        // אם אחד מהם float, התוצאה float
+        if (strcmp(left_type, "TYPE_FLOAT") == 0 || strcmp(right_type, "TYPE_FLOAT") == 0) {
+            return "TYPE_FLOAT";
+        }
+        // אחרת, int
+        return "TYPE_INT";
+    }
+    
+    // ביטויים לוגיים
+    if (strcmp(expr->name, "AND") == 0 || strcmp(expr->name, "OR") == 0 ||
+        strcmp(expr->name, "NOT") == 0 || strcmp(expr->name, "==") == 0 ||
+        strcmp(expr->name, "!=") == 0 || strcmp(expr->name, ">") == 0 ||
+        strcmp(expr->name, "<") == 0 || strcmp(expr->name, ">=") == 0 ||
+        strcmp(expr->name, "<=") == 0) {
+        return "TYPE_BOOL";
+    }
+    
+    // לא זוהה הטיפוס
+    return NULL;
+}

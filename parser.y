@@ -134,7 +134,27 @@ param_list:
 ;
 
 param:
-    type ID ASSIGN literal { $$ = make_node("PARAM_DEFAULT", 3, $1, make_node("ID", 1, make_node($2,0)), $4); }
+    type ID ASSIGN literal {
+        // בדיקת טיפוס ערך ברירת מחדל
+        int type_ok = 0;
+        if ($1 && $4) {
+            // $1 = type node, $4 = literal node
+            const char* param_type = $1->name;
+            const char* lit_type = NULL;
+            if (strcmp($4->name, "LIT_INT") == 0) lit_type = "TYPE_INT";
+            else if (strcmp($4->name, "LIT_FLOAT") == 0) lit_type = "TYPE_FLOAT";
+            else if (strcmp($4->name, "LIT_STR") == 0) lit_type = "TYPE_STRING";
+            else if (strcmp($4->name, "LIT_BOOL") == 0) lit_type = "TYPE_BOOL";
+            if (lit_type && strcmp(param_type, lit_type) == 0) type_ok = 1;
+        }
+        if (!type_ok) {
+            char err[256];
+            snprintf(err, sizeof(err), "Default value type does not match parameter type for '%s'", $2);
+            yyerror(err);
+            YYERROR;
+        }
+        $$ = make_node("PARAM_DEFAULT", 3, $1, make_node("ID", 1, make_node($2,0)), $4);
+    }
   | type ID { $$ = make_node("PARAM", 2, $1, make_node("ID", 1, make_node($2,0))); }
   | ID ASSIGN literal { $$ = make_node("PARAM_DEFAULT", 2, make_node("ID", 1, make_node($1,0)), $3); }
   | ID { $$ = make_node("PARAM", 1, make_node("ID", 1, make_node($1,0))); }
@@ -174,6 +194,7 @@ declarations:
 
 declaration:
     type var_decl_list SEMICOLON {
+        Node* type_node = $1;
         Node* list = $2;
         int error_found = 0;
         void check_vars(Node* node) {
@@ -182,7 +203,9 @@ declaration:
                 Node* id_node = node->children[0];
                 if (id_node && strcmp(id_node->name, "ID") == 0) {
                     char* varname = id_node->children[0]->name;
-                    if (!add_symbol(&var_scope_stack, varname)) {
+                    // משתמשים ב-var_decl כ־node במקום NULL
+                    Node* var_decl = make_node("VAR_DECL", 2, type_node, node);
+                    if (!add_symbol_ex(&var_scope_stack, varname, var_decl)) {
                         yyerror("Duplicate variable name in scope");
                         error_found = 1;
                     }
@@ -391,13 +414,78 @@ expression:
 
 string_access:
     ID LBRACKET string_slice_content RBRACKET {
+        // בדיקה שהמשתנה הוא מחרוזת
+        if (!var_defined($1)) {
+            char err[256];
+            snprintf(err, sizeof(err), "Variable '%s' used before declaration", $1);
+            yyerror(err);
+            YYERROR;
+        }
+        
+        // מצא את המשתנה וודא שהוא מטיפוס מחרוזת
+        Symbol* s = find_symbol($1);
+        
+        if (s && s->node) {
+            const char* var_type = NULL;
+            
+            // בדיקה לפי סוג הסמל
+            if (strcmp(s->node->name, "VAR_DECL") == 0) {
+                var_type = s->node->children[0]->name;
+            }
+            else if (strcmp(s->node->name, "PARAM") == 0) {
+                if (s->node->child_count >= 1)
+                    var_type = s->node->children[0]->name; // TYPE_*
+            }
+            else if (strcmp(s->node->name, "PARAM_DEFAULT") == 0) {
+                if (s->node->child_count >= 1)
+                    var_type = s->node->children[0]->name; // TYPE_*
+            }
+            
+            if (var_type == NULL || strcmp(var_type, "TYPE_STRING") != 0) {
+                char err[256];
+                snprintf(err, sizeof(err), "Operator [] can only be used with string variables, but '%s' is not a string", $1);
+                yyerror(err);
+                YYERROR;
+            }
+        }
+        
         $$ = make_node("STRING_ACCESS", 2, make_node("ID", 1, make_node($1,0)), $3);
     }
 ;
 
 string_slice_content:
-    expression { $$ = make_node("INDEX", 1, $1); }
+    expression { 
+        // בדיקה שהאינדקס הוא מטיפוס int
+        const char* expr_type = get_expression_type($1);
+        if (expr_type == NULL || strcmp(expr_type, "TYPE_INT") != 0) {
+            yyerror("String index must be of type int");
+            YYERROR;
+        }
+        $$ = make_node("INDEX", 1, $1); 
+    }
   | opt_expr COLON opt_expr opt_slice_step {
+        // בדיקת טיפוסים בslice
+        if ($1 && strcmp($1->name, "EMPTY") != 0) {
+            const char* expr_type = get_expression_type($1);
+            if (expr_type == NULL || strcmp(expr_type, "TYPE_INT") != 0) {
+                yyerror("String slice indices must be of type int");
+                YYERROR;
+            }
+        }
+        if ($3 && strcmp($3->name, "EMPTY") != 0) {
+            const char* expr_type = get_expression_type($3);
+            if (expr_type == NULL || strcmp(expr_type, "TYPE_INT") != 0) {
+                yyerror("String slice indices must be of type int");
+                YYERROR;
+            }
+        }
+        if ($4 && strcmp($4->name, "EMPTY") != 0) {
+            const char* expr_type = get_expression_type($4);
+            if (expr_type == NULL || strcmp(expr_type, "TYPE_INT") != 0) {
+                yyerror("String slice step must be of type int");
+                YYERROR;
+            }
+        }
         $$ = make_node("SLICE", 3, $1, $3, $4);
     }
 ;

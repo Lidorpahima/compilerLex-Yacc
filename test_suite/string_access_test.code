@@ -1,0 +1,20 @@
+def test_string_access(): {
+    string s;
+    int i;
+    float f;
+    
+    s = "hello";
+    i = 0;
+    f = 1.5;  
+    s = s[0];
+    s = s[i];
+    
+    s = s[f];  
+    
+    pass;
+}
+
+def main(): {
+    test_string_access();
+    pass;
+}

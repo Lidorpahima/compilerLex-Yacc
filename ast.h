@@ -48,4 +48,7 @@ int check_arg_types(Node* params, Node* args);
 Symbol* find_symbol(const char* name);
 void add_params_to_scope(Node* params_node);
 
+// פונקציה להשגת טיפוס הביטוי
+const char* get_expression_type(Node* expr);
+
 #endif
