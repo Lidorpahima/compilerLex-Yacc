@@ -1,6 +1,0 @@
-def __main__(): {
-  def illegal(): {
-    return;
-  };
-  return;
-}

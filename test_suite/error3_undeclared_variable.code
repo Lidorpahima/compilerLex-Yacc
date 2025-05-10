@@ -1,5 +1,0 @@
-def __main__(): {
-  x = 5;
-  int x;
-  return;
-}

@@ -1,0 +1,33 @@
+def calc(int a, int b, bool op=True) -> int: {
+    int result;
+    if op: {
+        result = a + b;
+    } else: {
+        result = a - b;
+    }
+    return result;
+}
+
+def __main__() : {
+    int x = 10;
+    int y = 20;
+    float z = 3.14;
+    bool flag = True;
+    string greeting = "Hello";
+    
+    int sum = calc(x, y);
+    int diff = calc(x, y, False);
+    
+    float result = x + z;
+    bool compare = x > y;
+    bool logic = flag and True;
+    
+    if x > 5: {
+        string message = greeting;
+        string first_char = message[0];
+    }
+    
+    while flag: {
+        flag = False;
+    }
+}

@@ -1,0 +1,6 @@
+def __main__() : {
+    bool result;
+    result = not 5;
+    int a;
+    a = 10;
+}
