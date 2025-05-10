@@ -177,3 +177,100 @@ int count_args(Node* args) {
     }
     return 1;
 }
+
+// בדיקת טיפוס בין פרמטר לארגומנט
+bool type_match(Node* param, Node* arg) {
+    if (!param || !arg) return false;
+    // פרמטר עם טיפוס: PARAM, PARAM_DEFAULT
+    Node* type_node = NULL;
+    if (strcmp(param->name, "PARAM") == 0)
+        type_node = param->children[0];
+    else if (strcmp(param->name, "PARAM_DEFAULT") == 0)
+        type_node = param->children[0];
+    else
+        return false;
+    if (!type_node) return false;
+    // קבל שם טיפוס פרמטר
+    const char* param_type = type_node->name;
+    // קבל טיפוס בפועל של הארגומנט
+    const char* arg_type = NULL;
+    if (strcmp(arg->name, "LIT_INT") == 0) arg_type = "TYPE_INT";
+    else if (strcmp(arg->name, "LIT_FLOAT") == 0) arg_type = "TYPE_FLOAT";
+    else if (strcmp(arg->name, "LIT_STR") == 0) arg_type = "TYPE_STRING";
+    else if (strcmp(arg->name, "LIT_BOOL") == 0) arg_type = "TYPE_BOOL";
+    else if (strcmp(arg->name, "VAR_USE") == 0 && arg->children[0]) {
+        Symbol* s = find_symbol(arg->children[0]->children[0]->name);
+        if (s && s->node && (strcmp(s->node->name, "VAR") == 0 || strcmp(s->node->name, "VAR_INIT") == 0))
+            arg_type = s->node->children[0]->name;
+    }
+    if (!arg_type) return true; // אם לא ידוע, לא בודקים
+    return strcmp(param_type, arg_type) == 0;
+}
+
+// בדיקת כל הארגומנטים מול הפרמטרים
+int check_arg_types(Node* params, Node* args) {
+    // הפוך רשימות לפרמטרים וארגומנטים
+    Node* plist[32], *alist[32];
+    int pc=0, ac=0;
+    void flatten(Node* n, Node** arr, int* cnt, const char* list_name) {
+        if (!n) return;
+        if (strcmp(n->name, list_name) == 0) {
+            flatten(n->children[0], arr, cnt, list_name);
+            flatten(n->children[1], arr, cnt, list_name);
+        } else {
+            arr[(*cnt)++] = n;
+        }
+    }
+    if (params && strcmp(params->name, "PARAM_LIST") == 0)
+        flatten(params, plist, &pc, "PARAM_LIST");
+    else if (params && (strcmp(params->name, "PARAM") == 0 || strcmp(params->name, "PARAM_DEFAULT") == 0))
+        plist[pc++] = params;
+    if (args && strcmp(args->name, "ARG_LIST") == 0)
+        flatten(args, alist, &ac, "ARG_LIST");
+    else if (args && strcmp(args->name, "ARGS_EMPTY") != 0)
+        alist[ac++] = args;
+    int n = (ac < pc) ? ac : pc;
+    for (int i = 0; i < n; i++) {
+        if (!type_match(plist[i], alist[i]))
+            return i+1;
+    }
+    return 0;
+}
+
+// חיפוש סמל בסקופים
+Symbol* find_symbol(const char* name) {
+    SymbolTable* t = var_scope_stack;
+    while (t) {
+        Symbol* s = t->head;
+        while (s) {
+            if (strcmp(s->name, name) == 0) return s;
+            s = s->next;
+        }
+        t = t->parent;
+    }
+    if (function_table) {
+        Symbol* s = function_table->head;
+        while (s) {
+            if (strcmp(s->name, name) == 0) return s;
+            s = s->next;
+        }
+    }
+    return NULL;
+}
+
+// הוספת פרמטרים לסקופ
+void add_params_to_scope(Node* params) {
+    if (!params) return;
+    void add(Node* n) {
+        if (!n) return;
+        if (strcmp(n->name, "PARAM_LIST") == 0) {
+            add(n->children[0]);
+            add(n->children[1]);
+        } else if (strcmp(n->name, "PARAM") == 0 || strcmp(n->name, "PARAM_DEFAULT") == 0) {
+            Node* id = (strcmp(n->name, "PARAM") == 0) ? n->children[1] : n->children[1];
+            if (id && strcmp(id->name, "ID") == 0)
+                add_symbol_ex(&var_scope_stack, id->children[0]->name, n);
+        }
+    }
+    add(params);
+}

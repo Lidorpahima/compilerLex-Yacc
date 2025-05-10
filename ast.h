@@ -42,4 +42,10 @@ void print_indent(int indent);
 void count_params(Node* params, int* total, int* required);
 int count_args(Node* args);
 
+// טיפוסי ארגומנטים תואמים לטיפוסי פרמטרים
+bool type_match(Node* param, Node* arg);
+int check_arg_types(Node* params, Node* args);
+Symbol* find_symbol(const char* name);
+void add_params_to_scope(Node* params_node);
+
 #endif

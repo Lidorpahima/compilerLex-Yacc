@@ -1,0 +1,11 @@
+def foo(int a ; float b=2.5): {
+    return a;
+}
+
+def bar(string x): {
+    return x;
+}
+
+def main(): {
+    foo(1, 3.14);
+}

@@ -86,14 +86,22 @@ function_list:
 ;
 
 function:
-    DEF ID LPAREN parameters RPAREN ARROW type COLON func_body {
+    DEF ID LPAREN parameters RPAREN ARROW type COLON {
+        push_scope();
+        add_params_to_scope($4);
+    } func_body {
+        pop_scope();
         if (strcmp($2, "__main__") == 0) {
             yyerror("__main__ must not have a return type");
             YYERROR;
         }
-        $$ = make_node("FUNC_DEF_TYPED", 4, make_node("ID", 1, make_node($2,0)), $4, $7, $9);
+        $$ = make_node("FUNC_DEF_TYPED", 4, make_node("ID", 1, make_node($2,0)), $4, $7, $10);
     }
-  | DEF ID LPAREN parameters RPAREN COLON func_body {
+  | DEF ID LPAREN parameters RPAREN COLON {
+        push_scope();
+        add_params_to_scope($4);
+    } func_body {
+        pop_scope();
         if (strcmp($2, "__main__") == 0) {
             main_count++;
             if (main_count > 1) {
@@ -105,7 +113,7 @@ function:
                 YYERROR;
             }
         }
-        $$ = make_node("FUNC_DEF", 3, make_node("ID", 1, make_node($2,0)), $4, $7);
+        $$ = make_node("FUNC_DEF", 3, make_node("ID", 1, make_node($2,0)), $4, $8);
     }
 ;
 
@@ -122,6 +130,7 @@ parameters:
 param_list:
     param { $$ = make_node("PARAM_LIST", 1, $1); }
   | param_list COMMA param { $$ = make_node("PARAM_LIST", 2, $1, $3); }
+  | param_list SEMICOLON param { $$ = make_node("PARAM_LIST", 2, $1, $3); }
 ;
 
 param:
@@ -297,6 +306,13 @@ function_call:
         if (nargs < required) {
             char err[256];
             snprintf(err, sizeof(err), "Function '%s' called with too few arguments (%d < %d)", $1, nargs, required);
+            yyerror(err);
+            YYERROR;
+        }
+        int type_mismatch = check_arg_types(params, $3);
+        if (type_mismatch > 0) {
+            char err[256];
+            snprintf(err, sizeof(err), "Type mismatch in argument %d of function '%s'", type_mismatch, $1);
             yyerror(err);
             YYERROR;
         }
