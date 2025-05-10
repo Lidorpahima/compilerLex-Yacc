@@ -21,7 +21,16 @@ void clear_all_symbols() {
 }
 
 void yyerror(const char* s) {
-    fprintf(stderr, "Syntax Error on line %d: %s\n", lineno, s);
+    // בדיקה אם זו שגיאת תחביר או סמנטיקה לפי תוכן ההודעה
+    if (strstr(s, "Type mismatch") ||
+        strstr(s, "cannot be") ||
+        strstr(s, "must be") ||
+        strstr(s, "operand") ||
+        strstr(s, "operands")) {
+        fprintf(stderr, "Semantic Error on line %d: %s\n", lineno, s);
+    } else {
+        fprintf(stderr, "Syntax Error on line %d: %s\n", lineno, s);
+    }
 }
 %}
 
@@ -203,6 +212,30 @@ declaration:
                 Node* id_node = node->children[0];
                 if (id_node && strcmp(id_node->name, "ID") == 0) {
                     char* varname = id_node->children[0]->name;
+                    
+                    // בדיקת טיפוס אם יש אתחול
+                    if (strcmp(node->name, "VAR_INIT") == 0 && node->child_count > 1) {
+                        Node* expr = node->children[1];
+                        const char* expr_type = get_expression_type(expr);
+                        const char* var_type = type_node->name;
+                        
+                        if (!expr_type) {
+                            char err[256];
+                            snprintf(err, sizeof(err), "Cannot determine type of expression in initialization of '%s'", varname);
+                            yyerror(err);
+                            error_found = 1;
+                        }
+                        else if (strcmp(var_type, expr_type) != 0) {
+                            // אם המשתנה הוא float והביטוי הוא int, זה בסדר
+                            if (!(strcmp(var_type, "TYPE_FLOAT") == 0 && strcmp(expr_type, "TYPE_INT") == 0)) {
+                                char err[256];
+                                snprintf(err, sizeof(err), "Type mismatch in initialization of variable '%s'", varname);
+                                yyerror(err);
+                                error_found = 1;
+                            }
+                        }
+                    }
+                    
                     // משתמשים ב-var_decl כ־node במקום NULL
                     Node* var_decl = make_node("VAR_DECL", 2, type_node, node);
                     if (!add_symbol_ex(&var_scope_stack, varname, var_decl)) {
@@ -266,6 +299,22 @@ suite:
 
 assignment:
     assignable_list ASSIGN expression_list {
+        // בדיקת התאמת טיפוסים בין הצד השמאלי לצד הימני
+        int error_code = check_assignment_types($1, $3);
+        if (error_code != 0) {
+            if (error_code == -1) {
+                yyerror("Too many values to unpack");
+                YYERROR;
+            } else if (error_code == -2) {
+                yyerror("Not enough values to unpack");
+                YYERROR;
+            } else {
+                char err[256];
+                snprintf(err, sizeof(err), "Type mismatch in assignment at position %d", error_code);
+                yyerror(err);
+                YYERROR;
+            }
+        }
         $$ = make_node("ASSIGN", 2, $1, $3);
     }
 ;
@@ -381,22 +430,242 @@ return_statement:
 ;
 
 expression:
-    expression OR expression { $$ = make_node("OR", 2, $1, $3); }
-  | expression AND expression { $$ = make_node("AND", 2, $1, $3); }
-  | NOT expression { $$ = make_node("NOT", 1, $2); }
-  | expression EQ expression { $$ = make_node("==", 2, $1, $3); }
-  | expression NE expression { $$ = make_node("!=", 2, $1, $3); }
-  | expression GE expression { $$ = make_node(">=", 2, $1, $3); }
-  | expression LE expression { $$ = make_node("<=", 2, $1, $3); }
-  | expression GT expression { $$ = make_node(">", 2, $1, $3); }
-  | expression LT expression { $$ = make_node("<", 2, $1, $3); }
+    expression OR expression { 
+        // בדיקה שהאופרנדים הם מטיפוס בוליאני
+        const char* left_type = get_expression_type($1);
+        const char* right_type = get_expression_type($3);
+        
+        if (!left_type || strcmp(left_type, "TYPE_BOOL") != 0) {
+            yyerror("Left operand of 'or' must be of type bool");
+            YYERROR;
+        }
+        if (!right_type || strcmp(right_type, "TYPE_BOOL") != 0) {
+            yyerror("Right operand of 'or' must be of type bool");
+            YYERROR;
+        }
+        $$ = make_node("OR", 2, $1, $3); 
+    }
+  | expression AND expression { 
+        // בדיקה שהאופרנדים הם מטיפוס בוליאני
+        const char* left_type = get_expression_type($1);
+        const char* right_type = get_expression_type($3);
+        
+        if (!left_type || strcmp(left_type, "TYPE_BOOL") != 0) {
+            yyerror("Left operand of 'and' must be of type bool");
+            YYERROR;
+        }
+        if (!right_type || strcmp(right_type, "TYPE_BOOL") != 0) {
+            yyerror("Right operand of 'and' must be of type bool");
+            YYERROR;
+        }
+        $$ = make_node("AND", 2, $1, $3); 
+    }
+  | NOT expression { 
+        // בדיקה שהאופרנד הוא מטיפוס בוליאני
+        const char* type = get_expression_type($2);
+        
+        if (!type || strcmp(type, "TYPE_BOOL") != 0) {
+            yyerror("Operand of 'not' must be of type bool");
+            YYERROR;
+        }
+        $$ = make_node("NOT", 1, $2); 
+    }
+  | expression EQ expression { 
+        // בדיקה שהאופרנדים מאותו טיפוס
+        const char* left_type = get_expression_type($1);
+        const char* right_type = get_expression_type($3);
+        
+        if (!left_type || !right_type) {
+            yyerror("Invalid operands for '=='");
+            YYERROR;
+        }
+        
+        if (strcmp(left_type, right_type) != 0) {
+            yyerror("Both operands of '==' must be of the same type");
+            YYERROR;
+        }
+        $$ = make_node("==", 2, $1, $3); 
+    }
+  | expression NE expression { 
+        // בדיקה שהאופרנדים מאותו טיפוס
+        const char* left_type = get_expression_type($1);
+        const char* right_type = get_expression_type($3);
+        
+        if (!left_type || !right_type) {
+            yyerror("Invalid operands for '!='");
+            YYERROR;
+        }
+        
+        if (strcmp(left_type, right_type) != 0) {
+            yyerror("Both operands of '!=' must be of the same type");
+            YYERROR;
+        }
+        $$ = make_node("!=", 2, $1, $3); 
+    }
+  | expression GE expression { 
+        // בדיקה שהאופרנדים הם מטיפוס מספרי
+        const char* left_type = get_expression_type($1);
+        const char* right_type = get_expression_type($3);
+        
+        if (!left_type || !right_type) {
+            yyerror("Invalid operands for '>='");
+            YYERROR;
+        }
+        
+        if ((strcmp(left_type, "TYPE_INT") != 0 && strcmp(left_type, "TYPE_FLOAT") != 0) ||
+            (strcmp(right_type, "TYPE_INT") != 0 && strcmp(right_type, "TYPE_FLOAT") != 0)) {
+            yyerror("Both operands of '>=' must be numeric (int or float)");
+            YYERROR;
+        }
+        $$ = make_node(">=", 2, $1, $3); 
+    }
+  | expression LE expression { 
+        // בדיקה שהאופרנדים הם מטיפוס מספרי
+        const char* left_type = get_expression_type($1);
+        const char* right_type = get_expression_type($3);
+        
+        if (!left_type || !right_type) {
+            yyerror("Invalid operands for '<='");
+            YYERROR;
+        }
+        
+        if ((strcmp(left_type, "TYPE_INT") != 0 && strcmp(left_type, "TYPE_FLOAT") != 0) ||
+            (strcmp(right_type, "TYPE_INT") != 0 && strcmp(right_type, "TYPE_FLOAT") != 0)) {
+            yyerror("Both operands of '<=' must be numeric (int or float)");
+            YYERROR;
+        }
+        $$ = make_node("<=", 2, $1, $3); 
+    }
+  | expression GT expression { 
+        // בדיקה שהאופרנדים הם מטיפוס מספרי
+        const char* left_type = get_expression_type($1);
+        const char* right_type = get_expression_type($3);
+        
+        if (!left_type || !right_type) {
+            yyerror("Invalid operands for '>'");
+            YYERROR;
+        }
+        
+        if ((strcmp(left_type, "TYPE_INT") != 0 && strcmp(left_type, "TYPE_FLOAT") != 0) ||
+            (strcmp(right_type, "TYPE_INT") != 0 && strcmp(right_type, "TYPE_FLOAT") != 0)) {
+            yyerror("Both operands of '>' must be numeric (int or float)");
+            YYERROR;
+        }
+        $$ = make_node(">", 2, $1, $3); 
+    }
+  | expression LT expression { 
+        // בדיקה שהאופרנדים הם מטיפוס מספרי
+        const char* left_type = get_expression_type($1);
+        const char* right_type = get_expression_type($3);
+        
+        if (!left_type || !right_type) {
+            yyerror("Invalid operands for '<'");
+            YYERROR;
+        }
+        
+        if ((strcmp(left_type, "TYPE_INT") != 0 && strcmp(left_type, "TYPE_FLOAT") != 0) ||
+            (strcmp(right_type, "TYPE_INT") != 0 && strcmp(right_type, "TYPE_FLOAT") != 0)) {
+            yyerror("Both operands of '<' must be numeric (int or float)");
+            YYERROR;
+        }
+        $$ = make_node("<", 2, $1, $3); 
+    }
   | expression IS expression { $$ = make_node("IS", 2, $1, $3); }
-  | expression PLUS expression { $$ = make_node("+", 2, $1, $3); }
-  | expression MINUS expression { $$ = make_node("-", 2, $1, $3); }
-  | expression TIMES expression { $$ = make_node("*", 2, $1, $3); }
-  | expression DIVIDE expression { $$ = make_node("/", 2, $1, $3); }
-  | expression POW expression { $$ = make_node("**", 2, $1, $3); }
-  | MINUS expression %prec UMINUS { $$ = make_node("UMINUS", 1, $2); }
+  | expression PLUS expression { 
+        // בדיקה שהאופרנדים הם מטיפוס מספרי
+        const char* left_type = get_expression_type($1);
+        const char* right_type = get_expression_type($3);
+        
+        if (!left_type || !right_type) {
+            yyerror("Invalid operands for '+'");
+            YYERROR;
+        }
+        
+        if ((strcmp(left_type, "TYPE_INT") != 0 && strcmp(left_type, "TYPE_FLOAT") != 0) ||
+            (strcmp(right_type, "TYPE_INT") != 0 && strcmp(right_type, "TYPE_FLOAT") != 0)) {
+            yyerror("Both operands of '+' must be numeric (int or float)");
+            YYERROR;
+        }
+        $$ = make_node("+", 2, $1, $3); 
+    }
+  | expression MINUS expression { 
+        // בדיקה שהאופרנדים הם מטיפוס מספרי
+        const char* left_type = get_expression_type($1);
+        const char* right_type = get_expression_type($3);
+        
+        if (!left_type || !right_type) {
+            yyerror("Invalid operands for '-'");
+            YYERROR;
+        }
+        
+        if ((strcmp(left_type, "TYPE_INT") != 0 && strcmp(left_type, "TYPE_FLOAT") != 0) ||
+            (strcmp(right_type, "TYPE_INT") != 0 && strcmp(right_type, "TYPE_FLOAT") != 0)) {
+            yyerror("Both operands of '-' must be numeric (int or float)");
+            YYERROR;
+        }
+        $$ = make_node("-", 2, $1, $3); 
+    }
+  | expression TIMES expression { 
+        // בדיקה שהאופרנדים הם מטיפוס מספרי
+        const char* left_type = get_expression_type($1);
+        const char* right_type = get_expression_type($3);
+        
+        if (!left_type || !right_type) {
+            yyerror("Invalid operands for '*'");
+            YYERROR;
+        }
+        
+        if ((strcmp(left_type, "TYPE_INT") != 0 && strcmp(left_type, "TYPE_FLOAT") != 0) ||
+            (strcmp(right_type, "TYPE_INT") != 0 && strcmp(right_type, "TYPE_FLOAT") != 0)) {
+            yyerror("Both operands of '*' must be numeric (int or float)");
+            YYERROR;
+        }
+        $$ = make_node("*", 2, $1, $3); 
+    }
+  | expression DIVIDE expression { 
+        // בדיקה שהאופרנדים הם מטיפוס מספרי
+        const char* left_type = get_expression_type($1);
+        const char* right_type = get_expression_type($3);
+        
+        if (!left_type || !right_type) {
+            yyerror("Invalid operands for '/'");
+            YYERROR;
+        }
+        
+        if ((strcmp(left_type, "TYPE_INT") != 0 && strcmp(left_type, "TYPE_FLOAT") != 0) ||
+            (strcmp(right_type, "TYPE_INT") != 0 && strcmp(right_type, "TYPE_FLOAT") != 0)) {
+            yyerror("Both operands of '/' must be numeric (int or float)");
+            YYERROR;
+        }
+        $$ = make_node("/", 2, $1, $3); 
+    }
+  | expression POW expression { 
+        // בדיקה שהאופרנדים הם מטיפוס מספרי
+        const char* left_type = get_expression_type($1);
+        const char* right_type = get_expression_type($3);
+        
+        if (!left_type || !right_type) {
+            yyerror("Invalid operands for '**'");
+            YYERROR;
+        }
+        
+        if ((strcmp(left_type, "TYPE_INT") != 0 && strcmp(left_type, "TYPE_FLOAT") != 0) ||
+            (strcmp(right_type, "TYPE_INT") != 0 && strcmp(right_type, "TYPE_FLOAT") != 0)) {
+            yyerror("Both operands of '**' must be numeric (int or float)");
+            YYERROR;
+        }
+        $$ = make_node("**", 2, $1, $3); 
+    }
+  | MINUS expression %prec UMINUS { 
+        // בדיקה שהאופרנד הוא מטיפוס מספרי
+        const char* type = get_expression_type($2);
+        
+        if (!type || (strcmp(type, "TYPE_INT") != 0 && strcmp(type, "TYPE_FLOAT") != 0)) {
+            yyerror("Operand of unary '-' must be numeric (int or float)");
+            YYERROR;
+        }
+        $$ = make_node("UMINUS", 1, $2); 
+    }
   | LPAREN expression RPAREN { $$ = $2; }
   | literal { $$ = $1; }
   | ID {

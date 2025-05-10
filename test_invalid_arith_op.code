@@ -1,0 +1,5 @@
+def __main__() : {
+    bool f = True;
+    bool g = False;
+    int res = f + g;
+}

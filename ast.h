@@ -51,4 +51,7 @@ void add_params_to_scope(Node* params_node);
 // פונקציה להשגת טיפוס הביטוי
 const char* get_expression_type(Node* expr);
 
+// פונקציה לבדיקת התאמת טיפוסים בהשמה
+int check_assignment_types(Node* lhs, Node* rhs);
+
 #endif

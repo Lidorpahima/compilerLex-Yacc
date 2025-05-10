@@ -1,0 +1,4 @@
+def __main__() : {
+    bool result;
+    result = 5 == "test";
+}

@@ -285,25 +285,14 @@ const char* get_expression_type(Node* expr) {
     if (strcmp(expr->name, "LIT_STR") == 0) return "TYPE_STRING";
     if (strcmp(expr->name, "LIT_BOOL") == 0) return "TYPE_BOOL";
     if (strcmp(expr->name, "STRING_ACCESS") == 0) return "TYPE_STRING"; // גישה למחרוזת מחזירה מחרוזת
+    if (strcmp(expr->name, "INDEX") == 0) return "TYPE_STRING"; // גישה למחרוזת באינדקס מחזירה מחרוזת
     
     // טיפול במשתנים
     if (strcmp(expr->name, "VAR_USE") == 0 && expr->child_count > 0) {
         const char* var_name = expr->children[0]->children[0]->name;
         
         // חיפוש המשתנה בסקופ
-        Symbol* s = NULL;
-        SymbolTable* scope = var_scope_stack;
-        while (scope && !s) {
-            Symbol* curr = scope->head;
-            while (curr) {
-                if (strcmp(curr->name, var_name) == 0) {
-                    s = curr;
-                    break;
-                }
-                curr = curr->next;
-            }
-            if (!s) scope = scope->parent;
-        }
+        Symbol* s = find_symbol(var_name);
         
         if (s && s->node) {
             // טיפול בפרמטרים של פונקציה
@@ -322,29 +311,225 @@ const char* get_expression_type(Node* expr) {
         }
     }
     
+    // טיפול בקריאות לפונקציה
+    if (strcmp(expr->name, "CALL") == 0 && expr->child_count > 0) {
+        const char* func_name = expr->children[0]->children[0]->name;
+        Symbol* s = NULL;
+        if (function_table) {
+            Symbol* curr = function_table->head;
+            while (curr) {
+                if (strcmp(curr->name, func_name) == 0) {
+                    s = curr;
+                    break;
+                }
+                curr = curr->next;
+            }
+        }
+        
+        if (s && s->node && strcmp(s->node->name, "FUNC_DEF_TYPED") == 0) {
+            return s->node->children[2]->name;  // TYPE_*
+        }
+        // פונקציות ללא החזרת ערך מפורשת
+        return NULL;
+    }
+    
     // ביטויים אריתמטיים
     if (strcmp(expr->name, "+") == 0 || strcmp(expr->name, "-") == 0 ||
-        strcmp(expr->name, "*") == 0 || strcmp(expr->name, "/") == 0) {
+        strcmp(expr->name, "*") == 0 || strcmp(expr->name, "/") == 0 ||
+        strcmp(expr->name, "**") == 0) {
         const char* left_type = get_expression_type(expr->children[0]);
         const char* right_type = get_expression_type(expr->children[1]);
+        
+        if (!left_type || !right_type) return NULL;
+        
+        // אם אחד מהם לא מספר, זו שגיאה
+        if ((strcmp(left_type, "TYPE_INT") != 0 && strcmp(left_type, "TYPE_FLOAT") != 0) ||
+            (strcmp(right_type, "TYPE_INT") != 0 && strcmp(right_type, "TYPE_FLOAT") != 0)) {
+            return NULL;  // שגיאה טיפוסית
+        }
         
         // אם אחד מהם float, התוצאה float
         if (strcmp(left_type, "TYPE_FLOAT") == 0 || strcmp(right_type, "TYPE_FLOAT") == 0) {
             return "TYPE_FLOAT";
         }
+        
         // אחרת, int
         return "TYPE_INT";
     }
     
+    // אופרטור המינוס החד-אברי
+    if (strcmp(expr->name, "UMINUS") == 0) {
+        const char* type = get_expression_type(expr->children[0]);
+        if (!type) return NULL;
+        
+        if (strcmp(type, "TYPE_INT") != 0 && strcmp(type, "TYPE_FLOAT") != 0) {
+            return NULL;  // שגיאה טיפוסית
+        }
+        
+        return type;  // שומר על אותו הטיפוס
+    }
+    
     // ביטויים לוגיים
-    if (strcmp(expr->name, "AND") == 0 || strcmp(expr->name, "OR") == 0 ||
-        strcmp(expr->name, "NOT") == 0 || strcmp(expr->name, "==") == 0 ||
-        strcmp(expr->name, "!=") == 0 || strcmp(expr->name, ">") == 0 ||
-        strcmp(expr->name, "<") == 0 || strcmp(expr->name, ">=") == 0 ||
-        strcmp(expr->name, "<=") == 0) {
+    if (strcmp(expr->name, "AND") == 0 || strcmp(expr->name, "OR") == 0) {
+        const char* left_type = get_expression_type(expr->children[0]);
+        const char* right_type = get_expression_type(expr->children[1]);
+        
+        if (!left_type || !right_type) return NULL;
+        
+        // שני האופרנדים חייבים להיות מסוג בוליאני
+        if (strcmp(left_type, "TYPE_BOOL") != 0 || strcmp(right_type, "TYPE_BOOL") != 0) {
+            return NULL;  // שגיאה טיפוסית
+        }
+        
+        return "TYPE_BOOL";
+    }
+    
+    // אופרטור השלילה הלוגית
+    if (strcmp(expr->name, "NOT") == 0) {
+        const char* type = get_expression_type(expr->children[0]);
+        if (!type || strcmp(type, "TYPE_BOOL") != 0) {
+            return NULL;  // שגיאה טיפוסית
+        }
+        
+        return "TYPE_BOOL";
+    }
+    
+    // אופרטורים של השוואת ערכים
+    if (strcmp(expr->name, "==") == 0 || strcmp(expr->name, "!=") == 0) {
+        const char* left_type = get_expression_type(expr->children[0]);
+        const char* right_type = get_expression_type(expr->children[1]);
+        
+        if (!left_type || !right_type) return NULL;
+        
+        // שני הצדדים חייבים להיות מאותו טיפוס
+        if (strcmp(left_type, right_type) != 0) {
+            return NULL;  // שגיאה טיפוסית
+        }
+        
+        return "TYPE_BOOL";
+    }
+    
+    // אופרטורים של השוואה מספרית
+    if (strcmp(expr->name, ">") == 0 || strcmp(expr->name, "<") == 0 ||
+        strcmp(expr->name, ">=") == 0 || strcmp(expr->name, "<=") == 0) {
+        const char* left_type = get_expression_type(expr->children[0]);
+        const char* right_type = get_expression_type(expr->children[1]);
+        
+        if (!left_type || !right_type) return NULL;
+        
+        // שני הצדדים חייבים להיות מספרים (int או float)
+        if ((strcmp(left_type, "TYPE_INT") != 0 && strcmp(left_type, "TYPE_FLOAT") != 0) ||
+            (strcmp(right_type, "TYPE_INT") != 0 && strcmp(right_type, "TYPE_FLOAT") != 0)) {
+            return NULL;  // שגיאה טיפוסית
+        }
+        
+        return "TYPE_BOOL";
+    }
+    
+    // אופרטור IS
+    if (strcmp(expr->name, "IS") == 0) {
+        // IS תמיד מחזיר תוצאה בוליאנית
         return "TYPE_BOOL";
     }
     
     // לא זוהה הטיפוס
     return NULL;
+}
+
+// בדיקת תאימות טיפוסים עבור השמה
+int check_assignment_types(Node* lhs, Node* rhs) {
+    // אם אחד מהם ריק, אין שגיאה
+    if (!lhs || !rhs) return 0;
+    
+    // שליפת רשימות של LHS ו-RHS
+    Node* lhs_list[32], *rhs_list[32];
+    int lc = 0, rc = 0;
+    
+    // שטח רשימת LHS
+    void flatten_lhs(Node* node) {
+        if (!node) return;
+        
+        if (strcmp(node->name, "LHS_LIST") == 0) {
+            for (int i = 0; i < node->child_count; i++) {
+                flatten_lhs(node->children[i]);
+            }
+        } else {
+            lhs_list[lc++] = node;
+        }
+    }
+    
+    // שטח רשימת RHS
+    void flatten_rhs(Node* node) {
+        if (!node) return;
+        
+        if (strcmp(node->name, "RHS_LIST") == 0) {
+            for (int i = 0; i < node->child_count; i++) {
+                flatten_rhs(node->children[i]);
+            }
+        } else {
+            rhs_list[rc++] = node;
+        }
+    }
+    
+    flatten_lhs(lhs);
+    flatten_rhs(rhs);
+    
+    // אם יש יותר ערכים בצד ימין מאשר בצד שמאל, זו שגיאה
+    if (rc > lc) return -1;  // יותר מדי ערכים בצד ימין
+    
+    // אם יש פחות ערכים בצד ימין מאשר בצד שמאל, זו שגיאה
+    if (rc < lc) return -2;  // לא מספיק ערכים בצד ימין
+    
+    // בדיקת התאמת טיפוסים
+    for (int i = 0; i < lc; i++) {
+        // קבל את המשתנה השמאלי
+        Node* lvar = lhs_list[i];
+        const char* lvar_type = NULL;
+        
+        // אם זה ID, מצא את טיפוס המשתנה
+        if (strcmp(lvar->name, "ID") == 0 && lvar->child_count > 0) {
+            Symbol* s = find_symbol(lvar->children[0]->name);
+            if (s && s->node) {
+                if (strcmp(s->node->name, "VAR_DECL") == 0) {
+                    lvar_type = s->node->children[0]->name;
+                }
+                else if (strcmp(s->node->name, "PARAM") == 0 && s->node->child_count >= 1) {
+                    lvar_type = s->node->children[0]->name;
+                }
+                else if (strcmp(s->node->name, "PARAM_DEFAULT") == 0 && s->node->child_count >= 1) {
+                    lvar_type = s->node->children[0]->name;
+                }
+            }
+        }
+        else if (strcmp(lvar->name, "STRING_ACCESS") == 0) {
+            // גישה למחרוזת תמיד מחזירה מחרוזת
+            lvar_type = "TYPE_STRING";
+        }
+        
+        if (!lvar_type) {
+            // לא ניתן לקבוע את הטיפוס של המשתנה השמאלי
+            return i + 1;
+        }
+        
+        // קבל את הטיפוס של הביטוי הימני
+        const char* rhs_type = get_expression_type(rhs_list[i]);
+        
+        if (!rhs_type) {
+            // לא ניתן לקבוע את הטיפוס של הביטוי הימני או שיש שגיאה טיפוסית
+            return i + 1;
+        }
+        
+        // בדוק התאמה
+        if (strcmp(lvar_type, rhs_type) != 0) {
+            // אם המשתנה הוא float והביטוי הוא int, זה בסדר
+            if (strcmp(lvar_type, "TYPE_FLOAT") == 0 && strcmp(rhs_type, "TYPE_INT") == 0) {
+                continue;
+            }
+            
+            // אחרת, אין התאמת טיפוסים
+            return i + 1;
+        }
+    }
+    
+    return 0;  // אין שגיאה
 }

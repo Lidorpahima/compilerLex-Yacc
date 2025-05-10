@@ -1,0 +1,4 @@
+def __main__() : {
+    int x, y = 5.5;
+    float f = 10;
+}

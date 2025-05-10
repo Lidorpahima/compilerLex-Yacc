@@ -1,0 +1,6 @@
+def __main__() : {
+    int x;
+    bool flag;
+    flag = True;
+    x = -flag;
+}
