@@ -73,24 +73,33 @@ program:
     function_list {
         ast_root = $1;
         $$ = $1;
+        validate_node($$, "program");
         clear_all_symbols();
     }
 ;
 
 function_list:
     function {
-        if (!add_symbol_ex(&function_table, $1->children[0]->children[0]->name, $1)) {
-            yyerror("Duplicate function name");
-            YYERROR;
+        if ($1 == NULL) {
+            $$ = make_node("FUNC_LIST", 0);
+        } else {
+            if (!add_symbol_ex(&function_table, $1->children[0]->children[0]->name, $1)) {
+                yyerror("Duplicate function name");
+                YYERROR;
+            }
+            $$ = make_node("FUNC_LIST", 1, $1);
         }
-        $$ = make_node("FUNC_LIST", 1, $1);
     }
   | function_list function {
-        if (!add_symbol_ex(&function_table, $2->children[0]->children[0]->name, $2)) {
-            yyerror("Duplicate function name");
-            YYERROR;
+        if ($2 == NULL) {
+            $$ = $1;
+        } else {
+            if (!add_symbol_ex(&function_table, $2->children[0]->children[0]->name, $2)) {
+                yyerror("Duplicate function name");
+                YYERROR;
+            }
+            $$ = make_node("FUNC_LIST", 2, $1, $2);
         }
-        $$ = make_node("FUNC_LIST", 2, $1, $2);
     }
 ;
 

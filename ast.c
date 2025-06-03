@@ -7,24 +7,44 @@
 Node* make_node(const char* name, int child_count, ...) {
     if (name == NULL) {
         printf("make_node ERROR: name is NULL\n");
-        exit(1);
+        return NULL;
     }
     Node* node = (Node*)malloc(sizeof(Node));
+    if (!node) {
+        printf("make_node ERROR: malloc failed for node\n");
+        return NULL;
+    }
     node->name = strdup(name);
+    if (!node->name) {
+        printf("make_node ERROR: strdup failed for name\n");
+        free(node);
+        return NULL;
+    }
     node->child_count = child_count;
 
     if (child_count > 0) {
-        node->children = (Node**)malloc(sizeof(Node*) * child_count);
+        node->children = (Node**)calloc(child_count, sizeof(Node*));
+        if (!node->children) {
+            printf("make_node ERROR: calloc failed for children array\n");
+            free(node->name);
+            free(node);
+            return NULL;
+        }
         va_list args;
         va_start(args, child_count);
+        bool has_valid_child = false;
         for (int i = 0; i < child_count; i++) {
-            node->children[i] = va_arg(args, Node*);
-            if (node->children[i] == NULL) {
-                printf("make_node ERROR: child %d is NULL for node %s\n", i, name);
-                exit(1);
+            Node* child = va_arg(args, Node*);
+            if (child != NULL) {
+                has_valid_child = true;
             }
+            node->children[i] = child;
         }
         va_end(args);
+        
+        if (!has_valid_child && strcmp(name, "FUNC_LIST") != 0) {
+            printf("Warning: no valid children for node %s\n", name);
+        }
     } else {
         node->children = NULL;
     }
@@ -50,19 +70,32 @@ bool is_internal_node(const char* name) {
 }
 
 void print_ast(Node* node, int indent) {
-    if (!node) return;
+    static int max_depth = 100;  // Prevent infinite recursion
+    if (indent > max_depth) {
+        print_indent(indent);
+        printf("(MAX-DEPTH-REACHED)\n");
+        return;
+    }
 
-    if (is_internal_node(node->name)) {
-        for (int i = 0; i < node->child_count; i++) {
-            print_ast(node->children[i], indent);
-        }
+    if (!node) {
+        print_indent(indent);
+        printf("(NULL)\n");
         return;
     }
 
     print_indent(indent);
+    if (!node->name) {
+        printf("(UNNAMED-NODE)\n");
+        return;
+    }
+
     printf("(%s", node->name);
 
     if (node->child_count > 0) {
+        if (!node->children) {
+            printf(" CHILDREN-ARRAY-NULL)\n");
+            return;
+        }
         printf("\n");
         for (int i = 0; i < node->child_count; i++) {
             print_ast(node->children[i], indent + 1);
@@ -532,4 +565,26 @@ int check_assignment_types(Node* lhs, Node* rhs) {
     }
     
     return 0;  // אין שגיאה
+}
+
+// פונקציית דיבוג לבדוק את מבנה ה-AST
+void validate_node(Node* node, const char* context) {
+    if (!node) {
+        printf("Debug: NULL node in context: %s\n", context);
+        return;
+    }
+    if (!node->name) {
+        printf("Debug: NULL name in node at context: %s\n", context);
+        return;
+    }
+    if (node->child_count > 0 && !node->children) {
+        printf("Debug: NULL children array with count %d in node %s at context: %s\n", 
+               node->child_count, node->name, context);
+        return;
+    }
+    for (int i = 0; i < node->child_count; i++) {
+        char new_context[256];
+        snprintf(new_context, sizeof(new_context), "%s->%s[%d]", context, node->name, i);
+        validate_node(node->children[i], new_context);
+    }
 }
