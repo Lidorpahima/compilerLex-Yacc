@@ -53,5 +53,6 @@ const char* get_expression_type(Node* expr);
 
 // פונקציה לבדיקת התאמת טיפוסים בהשמה
 int check_assignment_types(Node* lhs, Node* rhs);
+void validate_node(Node* node, const char* context);
 
 #endif
