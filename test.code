@@ -1,0 +1,20 @@
+def main(): {
+    int x, y, z;
+    x = 5 + 3;
+    y = x * 2;
+    if (x > 0): {
+        z = y - 1;
+    } else: {
+        z = 0;
+    }
+    while (z > 0): {
+        z = z - 1;
+    }
+    return z;
+}
+
+def add(int a, int b): {
+    int result;
+    result = a + b;
+    return result;
+}

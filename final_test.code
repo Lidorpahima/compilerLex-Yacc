@@ -1,0 +1,24 @@
+def main(): {
+    int x, y, result;
+    
+    // Basic assignments
+    x = 10;
+    y = 5;
+    
+    // Arithmetic expressions
+    result = x + y * 2;
+    
+    // Control flow
+    if x > 5: {
+        result = x * 2;
+    } else: {
+        result = y + 1;
+    }
+    
+    // While loop
+    while result < 50: {
+        result = result + 5;
+    }
+    
+    return result;
+}

@@ -1,0 +1,45 @@
+def mai    result = a / b;
+    
+    if a > b: {
+        result = 1;
+    }
+    
+    if a < b: {
+        result = 2;
+    }
+    
+    if a == b: {
+        result = 3;
+    }
+    
+    if a != b: {
+        result = 4;
+    }
+    
+    return result;
+} result;
+    a = 10;
+    b = 3;
+    
+    result = a + b;
+    result = a - b;
+    result = a * b;
+    result = a / b;
+    if a > b: {
+        result = 1;
+    }
+    
+    if a < b: {
+        result = 2;
+    }
+    
+    if a == b: {
+        result = 3;
+    }
+    
+    if a != b: {
+        result = 4;
+    }
+    
+    return result;
+}

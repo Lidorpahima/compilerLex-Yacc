@@ -54,4 +54,21 @@ const char* get_expression_type(Node* expr);
 // פונקציה לבדיקת התאמת טיפוסים בהשמה
 int check_assignment_types(Node* lhs, Node* rhs);
 
+// AC3 Generation functions
+typedef struct {
+    int temp_count;
+    int label_count;
+} AC3Context;
+
+void generate_ac3(Node* ast_root);
+void generate_ac3_node(Node* node, AC3Context* ctx);
+char* new_temp(AC3Context* ctx);
+char* new_label(AC3Context* ctx);
+void generate_ac3_expression(Node* expr, AC3Context* ctx, char** result);
+void generate_ac3_statement(Node* stmt, AC3Context* ctx);
+void generate_ac3_function(Node* func_def, AC3Context* ctx);
+void generate_ac3_control_flow(Node* stmt, AC3Context* ctx);
+void generate_ac3_short_circuit(Node* expr, AC3Context* ctx, char** result, char* true_label, char* false_label);
+void generate_ac3_params(Node* params, AC3Context* ctx);
+
 #endif

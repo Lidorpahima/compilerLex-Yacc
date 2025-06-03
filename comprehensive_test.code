@@ -1,0 +1,32 @@
+def main(): {
+    int x, y, result;
+    bool flag;
+    
+    // Basic assignments
+    x = 10;
+    y = 5;
+    
+    // Arithmetic expressions
+    result = x + y * 2;
+    
+    // Boolean expressions with short-circuit evaluation
+    if x > 5 and y < 10: {
+        flag = "True";
+        result = x * 2;
+    } else: {
+        flag = "False";
+        result = y + 1;
+    }
+    
+    // While loop
+    while result < 50: {
+        result = result + 5;
+    }
+    
+    // Comparison with OR short-circuit
+    if result > 40 or flag: {
+        return 1;
+    } else: {
+        return 0;
+    }
+}

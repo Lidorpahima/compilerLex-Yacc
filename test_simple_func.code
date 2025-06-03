@@ -1,0 +1,9 @@
+def simple(): {
+    return 42;
+}
+
+def main(): {
+    int x;
+    x = simple();
+    return x;
+}

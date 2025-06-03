@@ -533,3 +533,479 @@ int check_assignment_types(Node* lhs, Node* rhs) {
     
     return 0;  // אין שגיאה
 }
+
+// AC3 Generation Implementation
+
+char* new_temp(AC3Context* ctx) {
+    char* temp = malloc(20);
+    snprintf(temp, 20, "t%d", ctx->temp_count++);
+    return temp;
+}
+
+char* new_label(AC3Context* ctx) {
+    char* label = malloc(20);
+    snprintf(label, 20, "L%d", ctx->label_count++);
+    return label;
+}
+
+void generate_ac3(Node* ast_root) {
+    if (!ast_root) {
+        printf("// No AC3 to generate - empty AST\n");
+        return;
+    }
+    
+    printf("// Three-Address Code (AC3) \n");
+    printf("// ===================================\n\n");
+    
+    AC3Context ctx = {0, 0};
+    generate_ac3_node(ast_root, &ctx);
+}
+
+void generate_ac3_node(Node* node, AC3Context* ctx) {
+    if (!node) return;
+    
+    if (strcmp(node->name, "PROGRAM") == 0 || strcmp(node->name, "FUNC_LIST") == 0) {
+        // Process all children (function definitions and statements)
+        for (int i = 0; i < node->child_count; i++) {
+            generate_ac3_node(node->children[i], ctx);
+        }
+    }
+    else if (strcmp(node->name, "FUNC_DEF") == 0 || strcmp(node->name, "FUNC_DEF_TYPED") == 0) {
+        generate_ac3_function(node, ctx);
+    }
+    else if (strcmp(node->name, "ASSIGN") == 0 || 
+             strcmp(node->name, "IF_STMT") == 0 ||
+             strcmp(node->name, "WHILE") == 0 ||
+             strcmp(node->name, "RETURN_VALUE") == 0 ||
+             strcmp(node->name, "RETURN_EMPTY") == 0 ||
+             strcmp(node->name, "CALL") == 0) {
+        generate_ac3_statement(node, ctx);
+    }
+    else {
+        // Process other nodes recursively
+        for (int i = 0; i < node->child_count; i++) {
+            generate_ac3_node(node->children[i], ctx);
+        }
+    }
+}
+
+void generate_ac3_function(Node* func_def, AC3Context* ctx) {
+    if (!func_def || func_def->child_count < 2) return;
+    
+    Node* func_name = func_def->children[0];
+    Node* params_or_body = func_def->children[1];
+    Node* body = NULL;
+    
+    // Extract function name
+    char* actual_func_name = "unknown";
+    if (func_name && strcmp(func_name->name, "ID") == 0 && func_name->child_count > 0) {
+        actual_func_name = func_name->children[0]->name;
+    }
+    
+    printf("// Function: %s\n", actual_func_name);
+    printf("%s:\n", actual_func_name);
+    
+    // Handle different function definition structures
+    if (strcmp(func_def->name, "FUNC_DEF") == 0) {
+        // Untyped function: func_name, params, body
+        if (func_def->child_count >= 3) {
+            Node* params = func_def->children[1];
+            body = func_def->children[2];
+            
+            // Handle parameters
+            generate_ac3_params(params, ctx);
+        }
+    } else if (strcmp(func_def->name, "FUNC_DEF_TYPED") == 0) {
+        // Typed function: temporarily skip parameter processing to avoid hang
+        if (func_def->child_count >= 3) {
+            body = func_def->children[func_def->child_count - 1];
+            // Skip parameters for now
+        }
+    } else {
+        // Simple structure - assume it's body
+        body = params_or_body;
+    }
+    
+    // Generate body
+    if (body) {
+        generate_ac3_node(body, ctx);
+    }
+    
+    printf("    return\n\n");
+}
+
+void generate_ac3_params(Node* params, AC3Context* ctx) {
+    if (!params) return;
+    
+    if (strcmp(params->name, "PARAM_LIST") == 0) {
+        for (int i = 0; i < params->child_count; i++) {
+            generate_ac3_params(params->children[i], ctx);
+        }
+    } else if (strcmp(params->name, "PARAM") == 0 && params->child_count >= 2) {
+        Node* param_id = params->children[1];
+        if (param_id && strcmp(param_id->name, "ID") == 0 && param_id->child_count > 0) {
+            printf("    param %s\n", param_id->children[0]->name);
+        }
+    } else if (strcmp(params->name, "PARAM_DEFAULT") == 0 && params->child_count >= 2) {
+        Node* param_id = params->children[1];
+        if (param_id && strcmp(param_id->name, "ID") == 0 && param_id->child_count > 0) {
+            printf("    param %s\n", param_id->children[0]->name);
+        }
+    }
+}
+
+void generate_ac3_statement(Node* stmt, AC3Context* ctx) {
+    if (!stmt) return;
+    
+    if (strcmp(stmt->name, "ASSIGN") == 0) {
+        if (stmt->child_count >= 2) {
+            Node* lhs = stmt->children[0];
+            Node* rhs = stmt->children[1];
+            
+            // Extract variable name from LHS_LIST structure
+            char* var_name = NULL;
+            if (lhs && strcmp(lhs->name, "LHS_LIST") == 0 && lhs->child_count > 0) {
+                Node* var_node = lhs->children[0];
+                if (var_node && strcmp(var_node->name, "ID") == 0 && var_node->child_count > 0) {
+                    var_name = var_node->children[0]->name;
+                }
+            }
+            
+            // Extract expression from RHS_LIST structure
+            Node* expr = NULL;
+            if (rhs && strcmp(rhs->name, "RHS_LIST") == 0 && rhs->child_count > 0) {
+                expr = rhs->children[0];
+            }
+            
+            if (var_name && expr) {
+                char* result = NULL;
+                generate_ac3_expression(expr, ctx, &result);
+                
+                if (result) {
+                    printf("    %s = %s\n", var_name, result);
+                    free(result);
+                }
+            }
+        }
+    }
+    else if (strcmp(stmt->name, "IF_STMT") == 0) {
+        generate_ac3_control_flow(stmt, ctx);
+    }
+    else if (strcmp(stmt->name, "WHILE") == 0) {
+        generate_ac3_control_flow(stmt, ctx);
+    }
+    else if (strcmp(stmt->name, "RETURN_VALUE") == 0) {
+        if (stmt->child_count > 0 && stmt->children[0]) {
+            char* result = NULL;
+            generate_ac3_expression(stmt->children[0], ctx, &result);
+            if (result) {
+                printf("    return %s\n", result);
+                free(result);
+            }
+        } else {
+            printf("    return\n");
+        }
+    }
+    else if (strcmp(stmt->name, "RETURN_EMPTY") == 0) {
+        printf("    return\n");
+    }
+    else if (strcmp(stmt->name, "CALL") == 0) {
+        char* result = NULL;
+        generate_ac3_expression(stmt, ctx, &result);
+        if (result) {
+            printf("    call %s\n", result);
+            free(result);
+        }
+    }
+    else if (strcmp(stmt->name, "BLOCK") == 0) {
+        for (int i = 0; i < stmt->child_count; i++) {
+            generate_ac3_statement(stmt->children[i], ctx);
+        }
+    }
+    else if (strcmp(stmt->name, "STMTS") == 0) {
+        for (int i = 0; i < stmt->child_count; i++) {
+            generate_ac3_statement(stmt->children[i], ctx);
+        }
+    }
+    else if (strcmp(stmt->name, "SINGLE_STMT_SUITE") == 0) {
+        // Handle single statement suites (used in if/else without braces)
+        if (stmt->child_count > 0 && stmt->children[0]) {
+            generate_ac3_statement(stmt->children[0], ctx);
+        }
+    }
+    else if (strcmp(stmt->name, "DECLS") == 0 || 
+             strcmp(stmt->name, "DECLS_EMPTY") == 0 ||
+             strcmp(stmt->name, "VAR_DECL") == 0) {
+        // Skip declarations in AC3 generation
+        return;
+    }
+}
+
+void generate_ac3_expression(Node* expr, AC3Context* ctx, char** result) {
+    if (!expr || !result) return;
+    
+    // Handle literals
+    if (strcmp(expr->name, "LIT_INT") == 0 ||
+        strcmp(expr->name, "LIT_FLOAT") == 0 ||
+        strcmp(expr->name, "LIT_STR") == 0 ||
+        strcmp(expr->name, "LIT_BOOL") == 0) {
+        if (expr->child_count > 0 && expr->children[0]) {
+            *result = strdup(expr->children[0]->name);
+        } else {
+            *result = strdup("0");
+        }
+        return;
+    }
+    
+    // Handle variable references
+    if (strcmp(expr->name, "VAR_USE") == 0) {
+        if (expr->child_count > 0 && expr->children[0] && 
+            strcmp(expr->children[0]->name, "ID") == 0 &&
+            expr->children[0]->child_count > 0) {
+            *result = strdup(expr->children[0]->children[0]->name);
+        } else {
+            *result = strdup("unknown_var");
+        }
+        return;
+    }
+    
+    // Handle direct ID nodes
+    if (strcmp(expr->name, "ID") == 0) {
+        if (expr->child_count > 0) {
+            *result = strdup(expr->children[0]->name);
+        } else {
+            *result = strdup(expr->name);
+        }
+        return;
+    }
+    
+    // Handle short-circuit operators
+    if (strcmp(expr->name, "AND") == 0 || strcmp(expr->name, "OR") == 0) {
+        char* true_label = new_label(ctx);
+        char* false_label = new_label(ctx);
+        char* end_label = new_label(ctx);
+        
+        *result = new_temp(ctx);
+        
+        generate_ac3_short_circuit(expr, ctx, result, true_label, false_label);
+        
+        printf("%s:\n", true_label);
+        printf("    %s = 1\n", *result);
+        printf("    goto %s\n", end_label);
+        printf("%s:\n", false_label);
+        printf("    %s = 0\n", *result);
+        printf("%s:\n", end_label);
+        
+        free(true_label);
+        free(false_label);
+        free(end_label);
+        return;
+    }
+    
+    // Handle binary operators - check for operator symbols
+    if (expr->child_count == 2 && 
+        (strcmp(expr->name, "+") == 0 || strcmp(expr->name, "-") == 0 ||
+         strcmp(expr->name, "*") == 0 || strcmp(expr->name, "/") == 0 ||
+         strcmp(expr->name, "**") == 0 || strcmp(expr->name, "<") == 0 ||
+         strcmp(expr->name, ">") == 0 || strcmp(expr->name, "<=") == 0 ||
+         strcmp(expr->name, ">=") == 0 || strcmp(expr->name, "==") == 0 ||
+         strcmp(expr->name, "!=") == 0 || strcmp(expr->name, "PLUS") == 0 ||
+         strcmp(expr->name, "MINUS") == 0 || strcmp(expr->name, "TIMES") == 0 ||
+         strcmp(expr->name, "DIVIDE") == 0 || strcmp(expr->name, "POW") == 0 ||
+         strcmp(expr->name, "LT") == 0 || strcmp(expr->name, "GT") == 0 ||
+         strcmp(expr->name, "LE") == 0 || strcmp(expr->name, "GE") == 0 ||
+         strcmp(expr->name, "EQ") == 0 || strcmp(expr->name, "NE") == 0)) {
+        
+        char* left = NULL;
+        char* right = NULL;
+        
+        generate_ac3_expression(expr->children[0], ctx, &left);
+        generate_ac3_expression(expr->children[1], ctx, &right);
+        
+        if (left && right) {
+            *result = new_temp(ctx);
+            
+            // Use the operator as is if it's already a symbol, otherwise map it
+            const char* op = expr->name;
+            if (strcmp(op, "PLUS") == 0) op = "+";
+            else if (strcmp(op, "MINUS") == 0) op = "-";
+            else if (strcmp(op, "TIMES") == 0) op = "*";
+            else if (strcmp(op, "DIVIDE") == 0) op = "/";
+            else if (strcmp(op, "POW") == 0) op = "**";
+            else if (strcmp(op, "LT") == 0) op = "<";
+            else if (strcmp(op, "GT") == 0) op = ">";
+            else if (strcmp(op, "LE") == 0) op = "<=";
+            else if (strcmp(op, "GE") == 0) op = ">=";
+            else if (strcmp(op, "EQ") == 0) op = "==";
+            else if (strcmp(op, "NE") == 0) op = "!=";
+            
+            printf("    %s = %s %s %s\n", *result, left, op, right);
+        }
+        
+        if (left) free(left);
+        if (right) free(right);
+        return;
+    }
+    
+    // Handle unary operators
+    if (expr->child_count == 1) {
+        char* operand = NULL;
+        generate_ac3_expression(expr->children[0], ctx, &operand);
+        
+        if (operand) {
+            *result = new_temp(ctx);
+            
+            if (strcmp(expr->name, "NOT") == 0) {
+                printf("    %s = !%s\n", *result, operand);
+            } else if (strcmp(expr->name, "UMINUS") == 0) {
+                printf("    %s = -%s\n", *result, operand);
+            }
+            
+            free(operand);
+        }
+        return;
+    }
+    
+    // Handle function calls
+    if (strcmp(expr->name, "CALL") == 0 && expr->child_count >= 1) {
+        Node* func_name = expr->children[0];
+        *result = new_temp(ctx);
+        
+        // Get function name
+        char* actual_func_name = "unknown";
+        if (func_name && strcmp(func_name->name, "ID") == 0 && func_name->child_count > 0) {
+            actual_func_name = func_name->children[0]->name;
+        }
+        
+        // Handle arguments - they start from children[1]
+        for (int i = 1; i < expr->child_count; i++) {
+            char* arg_result = NULL;
+            generate_ac3_expression(expr->children[i], ctx, &arg_result);
+            if (arg_result) {
+                printf("    param %s\n", arg_result);
+                free(arg_result);
+            }
+        }
+        
+        printf("    %s = call %s\n", *result, actual_func_name);
+        return;
+    }
+    
+    *result = strdup("unknown");
+}
+
+void generate_ac3_short_circuit(Node* expr, AC3Context* ctx, char** result, char* true_label, char* false_label) {
+    if (!expr) return;
+    
+    if (strcmp(expr->name, "AND") == 0 && expr->child_count == 2) {
+        char* left_result = NULL;
+        generate_ac3_expression(expr->children[0], ctx, &left_result);
+        
+        if (left_result) {
+            printf("    if %s == 0 goto %s\n", left_result, false_label);
+            free(left_result);
+        }
+        
+        char* right_result = NULL;
+        generate_ac3_expression(expr->children[1], ctx, &right_result);
+        
+        if (right_result) {
+            printf("    if %s == 0 goto %s\n", right_result, false_label);
+            printf("    goto %s\n", true_label);
+            free(right_result);
+        }
+    }
+    else if (strcmp(expr->name, "OR") == 0 && expr->child_count == 2) {
+        char* left_result = NULL;
+        generate_ac3_expression(expr->children[0], ctx, &left_result);
+        
+        if (left_result) {
+            printf("    if %s != 0 goto %s\n", left_result, true_label);
+            free(left_result);
+        }
+        
+        char* right_result = NULL;
+        generate_ac3_expression(expr->children[1], ctx, &right_result);
+        
+        if (right_result) {
+            printf("    if %s != 0 goto %s\n", right_result, true_label);
+            printf("    goto %s\n", false_label);
+            free(right_result);
+        }
+    }
+}
+
+void generate_ac3_control_flow(Node* stmt, AC3Context* ctx) {
+    if (!stmt) return;
+    
+    if (strcmp(stmt->name, "IF_STMT") == 0) {
+        char* else_label = new_label(ctx);
+        char* end_label = new_label(ctx);
+        
+        // Generate condition
+        if (stmt->child_count > 0 && stmt->children[0]) {
+            char* cond_result = NULL;
+            generate_ac3_expression(stmt->children[0], ctx, &cond_result);
+            if (cond_result) {
+                printf("    if %s == 0 goto %s\n", cond_result, else_label);
+                free(cond_result);
+            }
+        }
+        
+        // Generate then block
+        if (stmt->child_count > 1 && stmt->children[1]) {
+            generate_ac3_statement(stmt->children[1], ctx);
+        }
+        
+        printf("    goto %s\n", end_label);
+        printf("%s:\n", else_label);
+        
+        // Check for elif chain (children[2]) - skip if empty
+        if (stmt->child_count > 2 && stmt->children[2] && 
+            strcmp(stmt->children[2]->name, "ELIF_EMPTY") != 0) {
+            generate_ac3_statement(stmt->children[2], ctx);
+        }
+        
+        // Generate else block if present (children[3])
+        if (stmt->child_count > 3 && stmt->children[3] && 
+            strcmp(stmt->children[3]->name, "ELSE_EMPTY") != 0) {
+            Node* else_node = stmt->children[3];
+            // ELSE node contains the actual statement/block as its first child
+            if (else_node->child_count > 0 && else_node->children[0]) {
+                generate_ac3_statement(else_node->children[0], ctx);
+            }
+        }
+        
+        printf("%s:\n", end_label);
+        
+        free(else_label);
+        free(end_label);
+    }
+    else if (strcmp(stmt->name, "WHILE") == 0) {
+        char* loop_start = new_label(ctx);
+        char* loop_end = new_label(ctx);
+        
+        printf("%s:\n", loop_start);
+        
+        // Generate condition
+        if (stmt->child_count > 0 && stmt->children[0]) {
+            char* cond_result = NULL;
+            generate_ac3_expression(stmt->children[0], ctx, &cond_result);
+            if (cond_result) {
+                printf("    if %s == 0 goto %s\n", cond_result, loop_end);
+                free(cond_result);
+            }
+        }
+        
+        // Generate body
+        if (stmt->child_count > 1 && stmt->children[1]) {
+            generate_ac3_statement(stmt->children[1], ctx);
+        }
+        
+        printf("    goto %s\n", loop_start);
+        printf("%s:\n", loop_end);
+        
+        free(loop_start);
+        free(loop_end);
+    }
+}

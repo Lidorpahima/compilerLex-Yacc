@@ -1,0 +1,8 @@
+def main(): {
+    int a, b, c, result;
+    a = 5;
+    b = 3;
+    c = 2;
+    result = a * b + c / 2 - 1;
+    return result;
+}

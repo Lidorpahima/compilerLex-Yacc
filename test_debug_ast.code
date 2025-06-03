@@ -1,0 +1,11 @@
+def main(): {
+    int a, b;
+    a = 23;
+    if a == 23: {
+        b = 10;
+    }
+    else: {
+        b = 19;
+    }
+    return b + a;
+}

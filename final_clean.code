@@ -1,0 +1,15 @@
+def main(): {
+    int x, y, result;
+    x = 10;
+    y = 5;
+    result = x + y * 2;
+    if x > 5: {
+        result = x * 2;
+    } else: {
+        result = y + 1;
+    }
+    while result < 50: {
+        result = result + 5;
+    }
+    return result;
+}

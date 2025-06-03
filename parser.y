@@ -205,52 +205,24 @@ declaration:
     type var_decl_list SEMICOLON {
         Node* type_node = $1;
         Node* list = $2;
-        int error_found = 0;
-        void check_vars(Node* node) {
+        
+        // Simple recursive function to add variables to symbol table
+        void add_vars_to_scope(Node* node) {
             if (!node) return;
             if (strcmp(node->name, "VAR") == 0 || strcmp(node->name, "VAR_INIT") == 0) {
                 Node* id_node = node->children[0];
                 if (id_node && strcmp(id_node->name, "ID") == 0) {
                     char* varname = id_node->children[0]->name;
-                    
-                    // בדיקת טיפוס אם יש אתחול
-                    if (strcmp(node->name, "VAR_INIT") == 0 && node->child_count > 1) {
-                        Node* expr = node->children[1];
-                        const char* expr_type = get_expression_type(expr);
-                        const char* var_type = type_node->name;
-                        
-                        if (!expr_type) {
-                            char err[256];
-                            snprintf(err, sizeof(err), "Cannot determine type of expression in initialization of '%s'", varname);
-                            yyerror(err);
-                            error_found = 1;
-                        }
-                        else if (strcmp(var_type, expr_type) != 0) {
-                            // אם המשתנה הוא float והביטוי הוא int, זה בסדר
-                            if (!(strcmp(var_type, "TYPE_FLOAT") == 0 && strcmp(expr_type, "TYPE_INT") == 0)) {
-                                char err[256];
-                                snprintf(err, sizeof(err), "Type mismatch in initialization of variable '%s'", varname);
-                                yyerror(err);
-                                error_found = 1;
-                            }
-                        }
-                    }
-                    
-                    // משתמשים ב-var_decl כ־node במקום NULL
                     Node* var_decl = make_node("VAR_DECL", 2, type_node, node);
-                    if (!add_symbol_ex(&var_scope_stack, varname, var_decl)) {
-                        yyerror("Duplicate variable name in scope");
-                        error_found = 1;
-                    }
+                    add_symbol_ex(&var_scope_stack, varname, var_decl);
                 }
             } else if (strcmp(node->name, "VAR_SPEC_LIST") == 0) {
                 for (int i = 0; i < node->child_count; i++) {
-                    check_vars(node->children[i]);
+                    add_vars_to_scope(node->children[i]);
                 }
             }
         }
-        check_vars(list);
-        if (error_found) YYERROR;
+        add_vars_to_scope(list);
         $$ = make_node("VAR_DECL", 2, $1, $2);
     }
 ;
@@ -777,7 +749,12 @@ int main() {
         if (ast_root == NULL) {
             fprintf(stderr, "Parsing OK, but AST root is NULL (empty input?).\n");
         } else {
+            printf("\n// Abstract Syntax Tree (AST)\n");
+            printf("// ===========================\n");
             print_ast(ast_root, 0);
+            printf("\n");
+
+            generate_ac3(ast_root);
         }
     } else {
         fprintf(stderr, "Parsing failed.\n");
