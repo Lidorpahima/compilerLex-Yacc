@@ -1,7 +1,0 @@
-def __main__() : {
-    int a = 10;
-    float f = 3.14;
-    
-    bool res;
-    res = a == f;
-}

@@ -1,4 +1,0 @@
-def __main__() : {
-    bool b1, b2;
-    b1 = 5 and False;
-}

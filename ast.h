@@ -2,56 +2,112 @@
 #define AST_H
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <stdbool.h>
 
-typedef struct Symbol {
+// Data types
+typedef enum {
+    TYPE_VOID,
+    TYPE_INT,
+    TYPE_FLOAT,
+    TYPE_BOOL,
+    TYPE_STRING
+} data_type_t;
+
+// Node types
+typedef enum {
+    NODE_PROGRAM,
+    NODE_FUNCTION,
+    NODE_PARAM,
+    NODE_VARIABLE,
+    NODE_LITERAL,
+    NODE_BINARY_OP,
+    NODE_UNARY_OP,
+    NODE_ASSIGN,
+    NODE_CALL,
+    NODE_IF,
+    NODE_WHILE,
+    NODE_RETURN,
+    NODE_BLOCK,
+    NODE_STRING_ACCESS,
+    NODE_PASS
+} node_type_t;
+
+// AST Node structure
+typedef struct node {
+    node_type_t type;
+    data_type_t data_type;
+    char* value;
     char* name;
-    struct Symbol* next;
-    struct Node* node; // מצביע לעץ ההגדרה (רק לפונקציות)
-} Symbol;
+    
+    struct node* left;
+    struct node* right;
+    struct node* condition;
+    struct node* if_body;
+    struct node* else_body;
+    struct node* params;
+    struct node* body;
+    struct node* args;
+    struct node* next;
+    
+    bool has_default;
+    struct node* default_value;
+    
+    int line_number;
+} node_t;
 
-typedef struct SymbolTable {
-    Symbol* head;
-    struct SymbolTable* parent; 
-} SymbolTable;
+// Symbol table structures
+typedef struct symbol {
+    char* name;
+    data_type_t type;
+    node_t* node;
+    struct symbol* next;
+    bool is_function;
+    int param_count;
+    int required_params;
+} symbol_t;
 
-extern SymbolTable* function_table;
+typedef struct scope {
+    symbol_t* symbols;
+    struct scope* parent;
+} scope_t;
 
-extern SymbolTable* var_scope_stack;
+// Global variables
+extern scope_t* current_scope;
+extern scope_t* global_scope;
+extern int line_number;
+extern int error_count;
+extern int main_count;
 
-bool add_symbol(SymbolTable** table, const char* name);
-bool add_symbol_ex(SymbolTable** table, const char* name, struct Node* node);
-bool symbol_exists(SymbolTable* table, const char* name);
-bool var_defined(const char* name);
-bool func_defined(const char* name);
-void push_scope();
-void pop_scope();
-void free_symbol_table(SymbolTable* table);
+// Function declarations
+node_t* make_node(node_type_t type, const char* value);
+void free_node(node_t* node);
+void print_ast(node_t* node, int indent);
 
-typedef struct Node {
-    char* name;             
-    struct Node** children; 
-    int child_count;       
-} Node;
+// Symbol table functions
+scope_t* create_scope(scope_t* parent);
+void push_scope(void);
+void pop_scope(void);
+symbol_t* add_symbol(const char* name, data_type_t type, node_t* node, bool is_function);
+symbol_t* find_symbol(const char* name);
+symbol_t* find_symbol_current_scope(const char* name);
 
-Node* make_node(const char* name, int child_count, ...);
+// Type checking functions
+const char* type_to_string(data_type_t type);
+data_type_t string_to_type(const char* type_str);
+data_type_t get_expression_type(node_t* expr);
+bool types_compatible(data_type_t expected, data_type_t actual);
 
-void print_ast(Node* node, int indent);
-void print_indent(int indent);
-
-void count_params(Node* params, int* total, int* required);
-int count_args(Node* args);
-
-// טיפוסי ארגומנטים תואמים לטיפוסי פרמטרים
-bool type_match(Node* param, Node* arg);
-int check_arg_types(Node* params, Node* args);
-Symbol* find_symbol(const char* name);
-void add_params_to_scope(Node* params_node);
-
-// פונקציה להשגת טיפוס הביטוי
-const char* get_expression_type(Node* expr);
-
-// פונקציה לבדיקת התאמת טיפוסים בהשמה
-int check_assignment_types(Node* lhs, Node* rhs);
+// Semantic analysis functions
+void semantic_error(const char* msg, int line);
+void analyze_program(node_t* root);
+void analyze_function(node_t* func);
+void analyze_statement(node_t* stmt);
+void analyze_expression(node_t* expr);
+void analyze_variable_declarations(node_t* decls);
+int count_parameters(node_t* params);
+int count_required_parameters(node_t* params);
+bool check_function_call(node_t* call);
 
 #endif

@@ -3,4 +3,4 @@ sudo apt-get install flex bison build-essential
 
 make
 
-./parser < test.code
+./compiler test.code

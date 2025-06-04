@@ -1,535 +1,749 @@
 #include "ast.h"
-#include <stdlib.h>
-#include <stdarg.h>
-#include <string.h>
-#include <stdbool.h>
 
-Node* make_node(const char* name, int child_count, ...) {
-    if (name == NULL) {
-        printf("make_node ERROR: name is NULL\n");
+// Global variables
+scope_t* current_scope = NULL;
+scope_t* global_scope = NULL;
+int line_number = 1;
+int error_count = 0;
+int main_count = 0;
+
+// Create a new AST node
+node_t* make_node(node_type_t type, const char* value) {
+    node_t* node = (node_t*)malloc(sizeof(node_t));
+    if (!node) {
+        fprintf(stderr, "Memory allocation failed\n");
         exit(1);
     }
-    Node* node = (Node*)malloc(sizeof(Node));
-    node->name = strdup(name);
-    node->child_count = child_count;
-
-    if (child_count > 0) {
-        node->children = (Node**)malloc(sizeof(Node*) * child_count);
-        va_list args;
-        va_start(args, child_count);
-        for (int i = 0; i < child_count; i++) {
-            node->children[i] = va_arg(args, Node*);
-            if (node->children[i] == NULL) {
-                printf("make_node ERROR: child %d is NULL for node %s\n", i, name);
-                exit(1);
-            }
-        }
-        va_end(args);
-    } else {
-        node->children = NULL;
-    }
-
+    
+    node->type = type;
+    node->data_type = TYPE_VOID;
+    node->value = value ? strdup(value) : NULL;
+    node->name = NULL;
+    
+    node->left = NULL;
+    node->right = NULL;
+    node->condition = NULL;
+    node->if_body = NULL;
+    node->else_body = NULL;
+    node->params = NULL;
+    node->body = NULL;
+    node->args = NULL;
+    node->next = NULL;
+    
+    node->has_default = false;
+    node->default_value = NULL;
+    
+    node->line_number = line_number;
+    
     return node;
 }
 
-void print_indent(int indent) {
-    for (int i = 0; i < indent; i++) {
-        printf("  ");
-    }
-}
-
-bool is_internal_node(const char* name) {
-    return (
-        strcmp(name, "PARAM_LIST") == 0 ||
-        strcmp(name, "PARAM_GROUPS") == 0 ||
-        strcmp(name, "PARAM_GROUP") == 0 ||
-        strcmp(name, "PARAMS_EMPTY") == 0 ||
-        strcmp(name, "ARGS_EMPTY") == 0 ||
-        strcmp(name, "ARG_LIST") == 0
-    );
-}
-
-void print_ast(Node* node, int indent) {
+// Free AST node and its children
+void free_node(node_t* node) {
     if (!node) return;
-
-    if (is_internal_node(node->name)) {
-        for (int i = 0; i < node->child_count; i++) {
-            print_ast(node->children[i], indent);
-        }
-        return;
-    }
-
-    print_indent(indent);
-    printf("(%s", node->name);
-
-    if (node->child_count > 0) {
-        printf("\n");
-        for (int i = 0; i < node->child_count; i++) {
-            print_ast(node->children[i], indent + 1);
-        }
-        print_indent(indent);
-    }
-
-    printf(")\n");
+    
+    free(node->value);
+    free(node->name);
+    
+    free_node(node->left);
+    free_node(node->right);
+    free_node(node->condition);
+    free_node(node->if_body);
+    free_node(node->else_body);
+    free_node(node->params);
+    free_node(node->body);
+    free_node(node->args);
+    free_node(node->next);
+    free_node(node->default_value);
+    
+    free(node);
 }
 
-// פונקציות עזר לניהול סמלים, AST, וספירת פרמטרים/ארגומנטים
-
-SymbolTable* function_table = NULL;
-SymbolTable* var_scope_stack = NULL;
-
-// הוספת סמל לטבלה (פונקציה או משתנה)
-bool add_symbol_ex(SymbolTable** table, const char* name, Node* node) {
-    if (symbol_exists(*table, name)) return false;
-    Symbol* sym = (Symbol*)malloc(sizeof(Symbol));
-    sym->name = strdup(name);
-    sym->next = (*table) ? (*table)->head : NULL;
-    sym->node = node;
-    if (!*table) {
-        *table = (SymbolTable*)malloc(sizeof(SymbolTable));
-        (*table)->parent = NULL;
-    }
-    sym->next = (*table)->head;
-    (*table)->head = sym;
-    return true;
-}
-
-bool add_symbol(SymbolTable** table, const char* name) {
-    return add_symbol_ex(table, name, NULL);
-}
-
-// בדיקת קיום סמל בטבלה (ללא חיפוש בהורה)
-bool symbol_exists(SymbolTable* table, const char* name) {
-    if (!table) return false;
-    Symbol* curr = table->head;
-    while (curr) {
-        if (strcmp(curr->name, name) == 0) return true;
-        curr = curr->next;
-    }
-    return false;
-}
-
-// בדיקת קיום משתנה בכל ה-scopeים
-bool var_defined(const char* name) {
-    SymbolTable* curr = var_scope_stack;
-    while (curr) {
-        if (symbol_exists(curr, name)) return true;
-        curr = curr->parent;
-    }
-    return false;
-}
-
-// בדיקת קיום פונקציה (גלובלי)
-bool func_defined(const char* name) {
-    return symbol_exists(function_table, name);
-}
-
-void push_scope() {
-    SymbolTable* new_scope = (SymbolTable*)malloc(sizeof(SymbolTable));
-    new_scope->head = NULL;
-    new_scope->parent = var_scope_stack;
-    var_scope_stack = new_scope;
-}
-
-void pop_scope() {
-    if (!var_scope_stack) return;
-    SymbolTable* old = var_scope_stack;
-    var_scope_stack = var_scope_stack->parent;
-    free_symbol_table(old);
-}
-
-void free_symbol_table(SymbolTable* table) {
-    Symbol* curr = table->head;
-    while (curr) {
-        Symbol* next = curr->next;
-        free(curr->name);
-        free(curr);
-        curr = next;
-    }
-    free(table);
-}
-
-// ספירת פרמטרים (סה"כ וחובה)
-void count_params(Node* params, int* total, int* required) {
-    if (!params) return;
-    if (strcmp(params->name, "PARAMS_EMPTY") == 0) return;
-    if (strcmp(params->name, "PARAM") == 0) {
-        (*total)++;
-        (*required)++;
-    } else if (strcmp(params->name, "PARAM_DEFAULT") == 0) {
-        (*total)++;
-    } else if (strcmp(params->name, "PARAM_LIST") == 0 || strcmp(params->name, "PARAM_GROUPS") == 0) {
-        for (int i = 0; i < params->child_count; i++)
-            count_params(params->children[i], total, required);
-    } else if (strcmp(params->name, "PARAM_GROUP") == 0) {
-        count_params(params->children[1], total, required);
-    }
-}
-
-// ספירת ארגומנטים בקריאה
-int count_args(Node* args) {
-    if (!args) return 0;
-    if (strcmp(args->name, "ARGS_EMPTY") == 0) return 0;
-    if (strcmp(args->name, "ARG_LIST") == 0) {
-        int left = count_args(args->children[0]);
-        int right = count_args(args->children[1]);
-        return left + right;
-    }
-    return 1;
-}
-
-// בדיקת טיפוס בין פרמטר לארגומנט
-bool type_match(Node* param, Node* arg) {
-    if (!param || !arg) return false;
-    // פרמטר עם טיפוס: PARAM, PARAM_DEFAULT
-    Node* type_node = NULL;
-    if (strcmp(param->name, "PARAM") == 0)
-        type_node = param->children[0];
-    else if (strcmp(param->name, "PARAM_DEFAULT") == 0)
-        type_node = param->children[0];
-    else
-        return false;
-    if (!type_node) return false;
-    // קבל שם טיפוס פרמטר
-    const char* param_type = type_node->name;
-    // קבל טיפוס בפועל של הארגומנט
-    const char* arg_type = NULL;
-    if (strcmp(arg->name, "LIT_INT") == 0) arg_type = "TYPE_INT";
-    else if (strcmp(arg->name, "LIT_FLOAT") == 0) arg_type = "TYPE_FLOAT";
-    else if (strcmp(arg->name, "LIT_STR") == 0) arg_type = "TYPE_STRING";
-    else if (strcmp(arg->name, "LIT_BOOL") == 0) arg_type = "TYPE_BOOL";
-    else if (strcmp(arg->name, "VAR_USE") == 0 && arg->children[0]) {
-        Symbol* s = find_symbol(arg->children[0]->children[0]->name);
-        if (s && s->node && (strcmp(s->node->name, "VAR") == 0 || strcmp(s->node->name, "VAR_INIT") == 0))
-            arg_type = s->node->children[0]->name;
-    }
-    if (!arg_type) return true; // אם לא ידוע, לא בודקים
-    return strcmp(param_type, arg_type) == 0;
-}
-
-// בדיקת כל הארגומנטים מול הפרמטרים
-int check_arg_types(Node* params, Node* args) {
-    // הפוך רשימות לפרמטרים וארגומנטים
-    Node* plist[32], *alist[32];
-    int pc=0, ac=0;
-    void flatten(Node* n, Node** arr, int* cnt, const char* list_name) {
-        if (!n) return;
-        if (strcmp(n->name, list_name) == 0) {
-            flatten(n->children[0], arr, cnt, list_name);
-            flatten(n->children[1], arr, cnt, list_name);
+// Print AST with indentation and colors
+void print_ast(node_t* node, int indent) {
+    if (!node) return;
+    
+    // Print indentation with tree structure
+    for (int i = 0; i < indent; i++) {
+        if (i == indent - 1) {
+            printf("├── ");
         } else {
-            arr[(*cnt)++] = n;
+            printf("│   ");
         }
     }
-    if (params && strcmp(params->name, "PARAM_LIST") == 0)
-        flatten(params, plist, &pc, "PARAM_LIST");
-    else if (params && (strcmp(params->name, "PARAM") == 0 || strcmp(params->name, "PARAM_DEFAULT") == 0))
-        plist[pc++] = params;
-    if (args && strcmp(args->name, "ARG_LIST") == 0)
-        flatten(args, alist, &ac, "ARG_LIST");
-    else if (args && strcmp(args->name, "ARGS_EMPTY") != 0)
-        alist[ac++] = args;
-    int n = (ac < pc) ? ac : pc;
-    for (int i = 0; i < n; i++) {
-        if (!type_match(plist[i], alist[i]))
-            return i+1;
+    
+    // Use colors and emojis for different node types
+    switch (node->type) {
+        case NODE_PROGRAM: 
+            printf("🚀 \033[1;36mPROGRAM\033[0m\n"); 
+            break;
+        case NODE_FUNCTION: 
+            printf("🔧 \033[1;32mFUNCTION\033[0m \033[1;33m%s\033[0m", node->name ? node->name : "unnamed");
+            if (node->data_type != TYPE_VOID) {
+                printf(" -> \033[1;35m%s\033[0m", type_to_string(node->data_type));
+            }
+            printf("\n");
+            break;
+        case NODE_PARAM: 
+            printf("📝 \033[1;34mPARAM\033[0m \033[1;33m%s\033[0m", node->name ? node->name : "unnamed"); 
+            if (node->data_type != TYPE_VOID) {
+                printf(": \033[1;35m%s\033[0m", type_to_string(node->data_type));
+            }
+            printf("\n");
+            break;
+        case NODE_VARIABLE: 
+            printf("📦 \033[1;36mVAR\033[0m \033[1;33m%s\033[0m", node->name ? node->name : "unnamed");
+            if (node->data_type != TYPE_VOID) {
+                printf(": \033[1;35m%s\033[0m", type_to_string(node->data_type));
+            }
+            printf("\n");
+            break;
+        case NODE_LITERAL: 
+            printf("💎 \033[1;93mLIT\033[0m \033[1;37m%s\033[0m", node->value ? node->value : "null");
+            if (node->data_type != TYPE_VOID) {
+                printf(" (\033[1;35m%s\033[0m)", type_to_string(node->data_type));
+            }
+            printf("\n");
+            break;
+        case NODE_BINARY_OP: 
+            printf("⚡ \033[1;91mOP\033[0m \033[1;37m%s\033[0m\n", node->value ? node->value : "unknown"); 
+            break;
+        case NODE_UNARY_OP: 
+            printf("🔄 \033[1;91mUNARY\033[0m \033[1;37m%s\033[0m\n", node->value ? node->value : "unknown"); 
+            break;
+        case NODE_ASSIGN: 
+            printf("📝 \033[1;95mASSIGN\033[0m\n"); 
+            break;
+        case NODE_CALL: 
+            printf("📞 \033[1;92mCALL\033[0m \033[1;33m%s\033[0m\n", node->name ? node->name : "unknown"); 
+            break;
+        case NODE_IF: 
+            printf("🔀 \033[1;94mIF\033[0m\n"); 
+            break;
+        case NODE_WHILE: 
+            printf("🔄 \033[1;94mWHILE\033[0m\n"); 
+            break;
+        case NODE_RETURN: 
+            printf("↩️  \033[1;93mRETURN\033[0m\n"); 
+            break;
+        case NODE_BLOCK: 
+            printf("📋 \033[1;90mBLOCK\033[0m\n"); 
+            break;
+        case NODE_STRING_ACCESS: 
+            printf("🔤 \033[1;96mSTRING_ACCESS\033[0m\n"); 
+            break;
+        case NODE_PASS: 
+            printf("⏭️  \033[1;90mPASS\033[0m\n"); 
+            break;
+        default:
+            printf("❓ \033[1;31mUNKNOWN\033[0m\n");
+            break;
     }
-    return 0;
+    
+    // Print children with proper tree structure
+    if (node->condition) {
+        print_ast(node->condition, indent + 1);
+    }
+    if (node->params) {
+        print_ast(node->params, indent + 1);
+    }
+    if (node->args) {
+        print_ast(node->args, indent + 1);
+    }
+    if (node->left) {
+        print_ast(node->left, indent + 1);
+    }
+    if (node->right) {
+        print_ast(node->right, indent + 1);
+    }
+    if (node->if_body) {
+        print_ast(node->if_body, indent + 1);
+    }
+    if (node->else_body) {
+        print_ast(node->else_body, indent + 1);
+    }
+    if (node->body) {
+        print_ast(node->body, indent + 1);
+    }
+    if (node->next) {
+        print_ast(node->next, indent);
+    }
 }
 
-// חיפוש סמל בסקופים
-Symbol* find_symbol(const char* name) {
-    SymbolTable* t = var_scope_stack;
-    while (t) {
-        Symbol* s = t->head;
-        while (s) {
-            if (strcmp(s->name, name) == 0) return s;
-            s = s->next;
-        }
-        t = t->parent;
+// Create new scope
+scope_t* create_scope(scope_t* parent) {
+    scope_t* scope = (scope_t*)malloc(sizeof(scope_t));
+    if (!scope) {
+        fprintf(stderr, "Memory allocation failed\n");
+        exit(1);
     }
-    if (function_table) {
-        Symbol* s = function_table->head;
-        while (s) {
-            if (strcmp(s->name, name) == 0) return s;
-            s = s->next;
+    scope->symbols = NULL;
+    scope->parent = parent;
+    return scope;
+}
+
+// Push new scope
+void push_scope(void) {
+    current_scope = create_scope(current_scope);
+    if (!global_scope) {
+        global_scope = current_scope;
+    }
+}
+
+// Pop current scope
+void pop_scope(void) {
+    if (!current_scope) return;
+    
+    scope_t* old_scope = current_scope;
+    current_scope = current_scope->parent;
+    
+    // Free symbols in the old scope
+    symbol_t* sym = old_scope->symbols;
+    while (sym) {
+        symbol_t* next = sym->next;
+        free(sym->name);
+        free(sym);
+        sym = next;
+    }
+    free(old_scope);
+}
+
+// Add symbol to current scope
+symbol_t* add_symbol(const char* name, data_type_t type, node_t* node, bool is_function) {
+    if (!current_scope) {
+        push_scope();
+    }
+    
+    // Check if symbol already exists in current scope
+    symbol_t* existing = find_symbol_current_scope(name);
+    if (existing) {
+        return NULL; // Symbol already exists
+    }
+    
+    symbol_t* symbol = (symbol_t*)malloc(sizeof(symbol_t));
+    if (!symbol) {
+        fprintf(stderr, "Memory allocation failed\n");
+        exit(1);
+    }
+    
+    symbol->name = strdup(name);
+    symbol->type = type;
+    symbol->node = node;
+    symbol->is_function = is_function;
+    symbol->param_count = 0;
+    symbol->required_params = 0;
+    
+    if (is_function && node && node->params) {
+        symbol->param_count = count_parameters(node->params);
+        symbol->required_params = count_required_parameters(node->params);
+    }
+    
+    symbol->next = current_scope->symbols;
+    current_scope->symbols = symbol;
+    
+    return symbol;
+}
+
+// Find symbol in current scope only
+symbol_t* find_symbol_current_scope(const char* name) {
+    if (!current_scope) return NULL;
+    
+    symbol_t* sym = current_scope->symbols;
+    while (sym) {
+        if (strcmp(sym->name, name) == 0) {
+            return sym;
         }
+        sym = sym->next;
     }
     return NULL;
 }
 
-// הוספת פרמטרים לסקופ
-void add_params_to_scope(Node* params) {
-    if (!params) return;
-    void add(Node* n) {
-        if (!n) return;
-        if (strcmp(n->name, "PARAM_LIST") == 0) {
-            add(n->children[0]);
-            add(n->children[1]);
-        } else if (strcmp(n->name, "PARAM") == 0 || strcmp(n->name, "PARAM_DEFAULT") == 0) {
-            Node* id = (strcmp(n->name, "PARAM") == 0) ? n->children[1] : n->children[1];
-            if (id && strcmp(id->name, "ID") == 0)
-                add_symbol_ex(&var_scope_stack, id->children[0]->name, n);
-        }
-    }
-    add(params);
-}
-
-// השגת טיפוס של ביטוי
-const char* get_expression_type(Node* expr) {
-    if (!expr) return NULL;
-    
-    // זיהוי טיפוס לפי סוג הביטוי
-    if (strcmp(expr->name, "LIT_INT") == 0) return "TYPE_INT";
-    if (strcmp(expr->name, "LIT_FLOAT") == 0) return "TYPE_FLOAT";
-    if (strcmp(expr->name, "LIT_STR") == 0) return "TYPE_STRING";
-    if (strcmp(expr->name, "LIT_BOOL") == 0) return "TYPE_BOOL";
-    if (strcmp(expr->name, "STRING_ACCESS") == 0) return "TYPE_STRING"; // גישה למחרוזת מחזירה מחרוזת
-    if (strcmp(expr->name, "INDEX") == 0) return "TYPE_STRING"; // גישה למחרוזת באינדקס מחזירה מחרוזת
-    
-    // טיפול במשתנים
-    if (strcmp(expr->name, "VAR_USE") == 0 && expr->child_count > 0) {
-        const char* var_name = expr->children[0]->children[0]->name;
-        
-        // חיפוש המשתנה בסקופ
-        Symbol* s = find_symbol(var_name);
-        
-        if (s && s->node) {
-            // טיפול בפרמטרים של פונקציה
-            if (strcmp(s->node->name, "PARAM") == 0) {
-                if (s->node->child_count >= 1)
-                    return s->node->children[0]->name;  // TYPE_*
+// Find symbol in all scopes
+symbol_t* find_symbol(const char* name) {
+    scope_t* scope = current_scope;
+    while (scope) {
+        symbol_t* sym = scope->symbols;
+        while (sym) {
+            if (strcmp(sym->name, name) == 0) {
+                return sym;
             }
-            else if (strcmp(s->node->name, "PARAM_DEFAULT") == 0) {
-                if (s->node->child_count >= 1)
-                    return s->node->children[0]->name;  // TYPE_*
-            }
-            // טיפול בהצהרת משתנה
-            else if (strcmp(s->node->name, "VAR_DECL") == 0) {
-                return s->node->children[0]->name;  // TYPE_*
-            }
+            sym = sym->next;
         }
+        scope = scope->parent;
     }
-    
-    // טיפול בקריאות לפונקציה
-    if (strcmp(expr->name, "CALL") == 0 && expr->child_count > 0) {
-        const char* func_name = expr->children[0]->children[0]->name;
-        Symbol* s = NULL;
-        if (function_table) {
-            Symbol* curr = function_table->head;
-            while (curr) {
-                if (strcmp(curr->name, func_name) == 0) {
-                    s = curr;
-                    break;
-                }
-                curr = curr->next;
-            }
-        }
-        
-        if (s && s->node && strcmp(s->node->name, "FUNC_DEF_TYPED") == 0) {
-            return s->node->children[2]->name;  // TYPE_*
-        }
-        // פונקציות ללא החזרת ערך מפורשת
-        return NULL;
-    }
-    
-    // ביטויים אריתמטיים
-    if (strcmp(expr->name, "+") == 0 || strcmp(expr->name, "-") == 0 ||
-        strcmp(expr->name, "*") == 0 || strcmp(expr->name, "/") == 0 ||
-        strcmp(expr->name, "**") == 0) {
-        const char* left_type = get_expression_type(expr->children[0]);
-        const char* right_type = get_expression_type(expr->children[1]);
-        
-        if (!left_type || !right_type) return NULL;
-        
-        // אם אחד מהם לא מספר, זו שגיאה
-        if ((strcmp(left_type, "TYPE_INT") != 0 && strcmp(left_type, "TYPE_FLOAT") != 0) ||
-            (strcmp(right_type, "TYPE_INT") != 0 && strcmp(right_type, "TYPE_FLOAT") != 0)) {
-            return NULL;  // שגיאה טיפוסית
-        }
-        
-        // אם אחד מהם float, התוצאה float
-        if (strcmp(left_type, "TYPE_FLOAT") == 0 || strcmp(right_type, "TYPE_FLOAT") == 0) {
-            return "TYPE_FLOAT";
-        }
-        
-        // אחרת, int
-        return "TYPE_INT";
-    }
-    
-    // אופרטור המינוס החד-אברי
-    if (strcmp(expr->name, "UMINUS") == 0) {
-        const char* type = get_expression_type(expr->children[0]);
-        if (!type) return NULL;
-        
-        if (strcmp(type, "TYPE_INT") != 0 && strcmp(type, "TYPE_FLOAT") != 0) {
-            return NULL;  // שגיאה טיפוסית
-        }
-        
-        return type;  // שומר על אותו הטיפוס
-    }
-    
-    // ביטויים לוגיים
-    if (strcmp(expr->name, "AND") == 0 || strcmp(expr->name, "OR") == 0) {
-        const char* left_type = get_expression_type(expr->children[0]);
-        const char* right_type = get_expression_type(expr->children[1]);
-        
-        if (!left_type || !right_type) return NULL;
-        
-        // שני האופרנדים חייבים להיות מסוג בוליאני
-        if (strcmp(left_type, "TYPE_BOOL") != 0 || strcmp(right_type, "TYPE_BOOL") != 0) {
-            return NULL;  // שגיאה טיפוסית
-        }
-        
-        return "TYPE_BOOL";
-    }
-    
-    // אופרטור השלילה הלוגית
-    if (strcmp(expr->name, "NOT") == 0) {
-        const char* type = get_expression_type(expr->children[0]);
-        if (!type || strcmp(type, "TYPE_BOOL") != 0) {
-            return NULL;  // שגיאה טיפוסית
-        }
-        
-        return "TYPE_BOOL";
-    }
-    
-    // אופרטורים של השוואת ערכים
-    if (strcmp(expr->name, "==") == 0 || strcmp(expr->name, "!=") == 0) {
-        const char* left_type = get_expression_type(expr->children[0]);
-        const char* right_type = get_expression_type(expr->children[1]);
-        
-        if (!left_type || !right_type) return NULL;
-        
-        // שני הצדדים חייבים להיות מאותו טיפוס
-        if (strcmp(left_type, right_type) != 0) {
-            return NULL;  // שגיאה טיפוסית
-        }
-        
-        return "TYPE_BOOL";
-    }
-    
-    // אופרטורים של השוואה מספרית
-    if (strcmp(expr->name, ">") == 0 || strcmp(expr->name, "<") == 0 ||
-        strcmp(expr->name, ">=") == 0 || strcmp(expr->name, "<=") == 0) {
-        const char* left_type = get_expression_type(expr->children[0]);
-        const char* right_type = get_expression_type(expr->children[1]);
-        
-        if (!left_type || !right_type) return NULL;
-        
-        // שני הצדדים חייבים להיות מספרים (int או float)
-        if ((strcmp(left_type, "TYPE_INT") != 0 && strcmp(left_type, "TYPE_FLOAT") != 0) ||
-            (strcmp(right_type, "TYPE_INT") != 0 && strcmp(right_type, "TYPE_FLOAT") != 0)) {
-            return NULL;  // שגיאה טיפוסית
-        }
-        
-        return "TYPE_BOOL";
-    }
-    
-    // אופרטור IS
-    if (strcmp(expr->name, "IS") == 0) {
-        // IS תמיד מחזיר תוצאה בוליאנית
-        return "TYPE_BOOL";
-    }
-    
-    // לא זוהה הטיפוס
     return NULL;
 }
 
-// בדיקת תאימות טיפוסים עבור השמה
-int check_assignment_types(Node* lhs, Node* rhs) {
-    // אם אחד מהם ריק, אין שגיאה
-    if (!lhs || !rhs) return 0;
-    
-    // שליפת רשימות של LHS ו-RHS
-    Node* lhs_list[32], *rhs_list[32];
-    int lc = 0, rc = 0;
-    
-    // שטח רשימת LHS
-    void flatten_lhs(Node* node) {
-        if (!node) return;
-        
-        if (strcmp(node->name, "LHS_LIST") == 0) {
-            for (int i = 0; i < node->child_count; i++) {
-                flatten_lhs(node->children[i]);
-            }
-        } else {
-            lhs_list[lc++] = node;
-        }
+// Convert type to string
+const char* type_to_string(data_type_t type) {
+    switch (type) {
+        case TYPE_VOID: return "void";
+        case TYPE_INT: return "int";
+        case TYPE_FLOAT: return "float";
+        case TYPE_BOOL: return "bool";
+        case TYPE_STRING: return "string";
+        default: return "unknown";
     }
+}
+
+// Convert string to type
+data_type_t string_to_type(const char* type_str) {
+    if (strcmp(type_str, "int") == 0) return TYPE_INT;
+    if (strcmp(type_str, "float") == 0) return TYPE_FLOAT;
+    if (strcmp(type_str, "bool") == 0) return TYPE_BOOL;
+    if (strcmp(type_str, "string") == 0) return TYPE_STRING;
+    return TYPE_VOID;
+}
+
+// Get expression type
+data_type_t get_expression_type(node_t* expr) {
+    if (!expr) return TYPE_VOID;
     
-    // שטח רשימת RHS
-    void flatten_rhs(Node* node) {
-        if (!node) return;
-        
-        if (strcmp(node->name, "RHS_LIST") == 0) {
-            for (int i = 0; i < node->child_count; i++) {
-                flatten_rhs(node->children[i]);
-            }
-        } else {
-            rhs_list[rc++] = node;
+    switch (expr->type) {
+        case NODE_LITERAL:
+            return expr->data_type;
+            
+        case NODE_VARIABLE: {
+            symbol_t* sym = find_symbol(expr->name);
+            return sym ? sym->type : TYPE_VOID;
         }
-    }
-    
-    flatten_lhs(lhs);
-    flatten_rhs(rhs);
-    
-    // אם יש יותר ערכים בצד ימין מאשר בצד שמאל, זו שגיאה
-    if (rc > lc) return -1;  // יותר מדי ערכים בצד ימין
-    
-    // אם יש פחות ערכים בצד ימין מאשר בצד שמאל, זו שגיאה
-    if (rc < lc) return -2;  // לא מספיק ערכים בצד ימין
-    
-    // בדיקת התאמת טיפוסים
-    for (int i = 0; i < lc; i++) {
-        // קבל את המשתנה השמאלי
-        Node* lvar = lhs_list[i];
-        const char* lvar_type = NULL;
         
-        // אם זה ID, מצא את טיפוס המשתנה
-        if (strcmp(lvar->name, "ID") == 0 && lvar->child_count > 0) {
-            Symbol* s = find_symbol(lvar->children[0]->name);
-            if (s && s->node) {
-                if (strcmp(s->node->name, "VAR_DECL") == 0) {
-                    lvar_type = s->node->children[0]->name;
+        case NODE_BINARY_OP: {
+            if (!expr->value) return TYPE_VOID;
+            
+            data_type_t left_type = get_expression_type(expr->left);
+            data_type_t right_type = get_expression_type(expr->right);
+            
+            // Arithmetic operators
+            if (strcmp(expr->value, "+") == 0 || strcmp(expr->value, "-") == 0 ||
+                strcmp(expr->value, "*") == 0 || strcmp(expr->value, "/") == 0 ||
+                strcmp(expr->value, "**") == 0) {
+                if (left_type == TYPE_FLOAT || right_type == TYPE_FLOAT) {
+                    return TYPE_FLOAT;
                 }
-                else if (strcmp(s->node->name, "PARAM") == 0 && s->node->child_count >= 1) {
-                    lvar_type = s->node->children[0]->name;
-                }
-                else if (strcmp(s->node->name, "PARAM_DEFAULT") == 0 && s->node->child_count >= 1) {
-                    lvar_type = s->node->children[0]->name;
-                }
-            }
-        }
-        else if (strcmp(lvar->name, "STRING_ACCESS") == 0) {
-            // גישה למחרוזת תמיד מחזירה מחרוזת
-            lvar_type = "TYPE_STRING";
-        }
-        
-        if (!lvar_type) {
-            // לא ניתן לקבוע את הטיפוס של המשתנה השמאלי
-            return i + 1;
-        }
-        
-        // קבל את הטיפוס של הביטוי הימני
-        const char* rhs_type = get_expression_type(rhs_list[i]);
-        
-        if (!rhs_type) {
-            // לא ניתן לקבוע את הטיפוס של הביטוי הימני או שיש שגיאה טיפוסית
-            return i + 1;
-        }
-        
-        // בדוק התאמה
-        if (strcmp(lvar_type, rhs_type) != 0) {
-            // אם המשתנה הוא float והביטוי הוא int, זה בסדר
-            if (strcmp(lvar_type, "TYPE_FLOAT") == 0 && strcmp(rhs_type, "TYPE_INT") == 0) {
-                continue;
+                return TYPE_INT;
             }
             
-            // אחרת, אין התאמת טיפוסים
-            return i + 1;
+            // Comparison operators
+            if (strcmp(expr->value, ">") == 0 || strcmp(expr->value, "<") == 0 ||
+                strcmp(expr->value, ">=") == 0 || strcmp(expr->value, "<=") == 0 ||
+                strcmp(expr->value, "==") == 0 || strcmp(expr->value, "!=") == 0 ||
+                strcmp(expr->value, "is") == 0) {
+                return TYPE_BOOL;
+            }
+            
+            // Logical operators
+            if (strcmp(expr->value, "and") == 0 || strcmp(expr->value, "or") == 0) {
+                return TYPE_BOOL;
+            }
+            
+            break;
         }
+        
+        case NODE_UNARY_OP: {
+            if (!expr->value) return TYPE_VOID;
+            
+            if (strcmp(expr->value, "not") == 0) {
+                return TYPE_BOOL;
+            }
+            if (strcmp(expr->value, "-") == 0) {
+                return get_expression_type(expr->left);
+            }
+            break;
+        }
+        
+        case NODE_CALL: {
+            symbol_t* sym = find_symbol(expr->name);
+            return sym ? sym->type : TYPE_VOID;
+        }
+        
+        case NODE_STRING_ACCESS:
+            return TYPE_STRING;
+            
+        default:
+            break;
     }
     
-    return 0;  // אין שגיאה
+    return TYPE_VOID;
+}
+
+// Check if types are compatible
+bool types_compatible(data_type_t expected, data_type_t actual) {
+    if (expected == actual) return true;
+    if (expected == TYPE_FLOAT && actual == TYPE_INT) return true;
+    return false;
+}
+
+// Count parameters
+int count_parameters(node_t* params) {
+    if (!params) return 0;
+    
+    int count = 0;
+    node_t* param = params;
+    while (param) {
+        if (param->type == NODE_PARAM) {
+            count++;
+        }
+        param = param->next;
+    }
+    return count;
+}
+
+// Count required parameters (without default values)
+int count_required_parameters(node_t* params) {
+    if (!params) return 0;
+    
+    int count = 0;
+    node_t* param = params;
+    while (param) {
+        if (param->type == NODE_PARAM && !param->has_default) {
+            count++;
+        }
+        param = param->next;
+    }
+    return count;
+}
+
+// Semantic error reporting
+void semantic_error(const char* msg, int line) {
+    fprintf(stderr, "Semantic error on line %d: %s\n", line, msg);
+    error_count++;
+}
+
+// Analyze variable declarations
+void analyze_variable_declarations(node_t* decls) {
+    if (!decls) return;
+    
+    node_t* decl = decls;
+    while (decl) {
+        if (decl->type == NODE_VARIABLE) {
+            // Check for duplicate variable names in current scope
+            if (find_symbol_current_scope(decl->name)) {
+                semantic_error("Duplicate variable name in scope", decl->line_number);
+            } else {
+                // Add variable to symbol table
+                add_symbol(decl->name, decl->data_type, decl, false);
+                
+                // Check initialization expression if present
+                if (decl->right) {
+                    analyze_expression(decl->right);
+                    data_type_t init_type = get_expression_type(decl->right);
+                    if (!types_compatible(decl->data_type, init_type)) {
+                        semantic_error("Type mismatch in variable initialization", decl->line_number);
+                    }
+                }
+            }
+        }
+        decl = decl->next;
+    }
+}
+
+// Analyze program
+void analyze_program(node_t* root) {
+    if (!root) return;
+    
+    error_count = 0;
+    main_count = 0;
+    
+    push_scope(); // Global scope
+    
+    // First pass: collect all function declarations
+    node_t* func = root;
+    while (func) {
+        if (func->type == NODE_FUNCTION) {
+            if (find_symbol_current_scope(func->name)) {
+                semantic_error("Duplicate function definition", func->line_number);
+            } else {
+                add_symbol(func->name, func->data_type, func, true);
+                if (strcmp(func->name, "__main__") == 0) {
+                    main_count++;
+                    
+                    // Check __main__ constraints
+                    if (func->data_type != TYPE_VOID) {
+                        semantic_error("__main__ must not have a return type", func->line_number);
+                    }
+                    if (count_parameters(func->params) > 0) {
+                        semantic_error("__main__ must not have parameters", func->line_number);
+                    }
+                }
+            }
+        }
+        func = func->next;
+    }
+    
+    // Check for __main__ function
+    if (main_count == 0) {
+        semantic_error("Missing __main__ function", 0);
+    } else if (main_count > 1) {
+        semantic_error("Multiple __main__ function definitions", 0);
+    }
+    
+    // Second pass: analyze function bodies
+    func = root;
+    while (func) {
+        if (func->type == NODE_FUNCTION) {
+            analyze_function(func);
+        }
+        func = func->next;
+    }
+    
+    pop_scope(); // Global scope
+}
+
+// Analyze function
+void analyze_function(node_t* func) {
+    if (!func) return;
+    
+    push_scope(); // Function scope
+    
+    // Add parameters to scope
+    node_t* param = func->params;
+    while (param) {
+        if (param->type == NODE_PARAM) {
+            if (find_symbol_current_scope(param->name)) {
+                semantic_error("Duplicate parameter name", param->line_number);
+            } else {
+                add_symbol(param->name, param->data_type, param, false);
+                
+                // Check default value type
+                if (param->has_default && param->default_value) {
+                    data_type_t default_type = get_expression_type(param->default_value);
+                    if (!types_compatible(param->data_type, default_type)) {
+                        semantic_error("Default value type does not match parameter type", param->line_number);
+                    }
+                }
+            }
+        }
+        param = param->next;
+    }
+    
+    // Analyze function body
+    analyze_statement(func->body);
+    
+    pop_scope(); // Function scope
+}
+
+// Analyze statement
+void analyze_statement(node_t* stmt) {
+    if (!stmt) return;
+    
+    switch (stmt->type) {
+        case NODE_BLOCK:
+            push_scope();
+            // Analyze variable declarations first
+            if (stmt->left) {
+                analyze_variable_declarations(stmt->left);
+            }
+            // Then analyze statements
+            analyze_statement(stmt->body);
+            pop_scope();
+            break;
+            
+        case NODE_ASSIGN: {
+            analyze_expression(stmt->right);
+            
+            if (stmt->left && stmt->left->type == NODE_VARIABLE) {
+                symbol_t* sym = find_symbol(stmt->left->name);
+                if (!sym) {
+                    semantic_error("Variable used before declaration", stmt->line_number);
+                } else {
+                    data_type_t expr_type = get_expression_type(stmt->right);
+                    if (!types_compatible(sym->type, expr_type)) {
+                        semantic_error("Type mismatch in assignment", stmt->line_number);
+                    }
+                }
+            }
+            break;
+        }
+        
+        case NODE_IF:
+            analyze_expression(stmt->condition);
+            if (get_expression_type(stmt->condition) != TYPE_BOOL) {
+                semantic_error("Condition in if statement must be boolean", stmt->line_number);
+            }
+            analyze_statement(stmt->if_body);
+            if (stmt->else_body) {
+                analyze_statement(stmt->else_body);
+            }
+            break;
+            
+        case NODE_WHILE:
+            analyze_expression(stmt->condition);
+            if (get_expression_type(stmt->condition) != TYPE_BOOL) {
+                semantic_error("Condition in while statement must be boolean", stmt->line_number);
+            }
+            analyze_statement(stmt->body);
+            break;
+            
+        case NODE_RETURN:
+            if (stmt->left) {
+                analyze_expression(stmt->left);
+            }
+            break;
+            
+        case NODE_CALL:
+            check_function_call(stmt);
+            break;
+            
+        default:
+            break;
+    }
+    
+    // Analyze next statement
+    if (stmt->next) {
+        analyze_statement(stmt->next);
+    }
+}
+
+// Analyze expression
+void analyze_expression(node_t* expr) {
+    if (!expr) return;
+    
+    switch (expr->type) {
+        case NODE_VARIABLE: {
+            symbol_t* sym = find_symbol(expr->name);
+            if (!sym) {
+                semantic_error("Variable used before declaration", expr->line_number);
+            }
+            break;
+        }
+        
+        case NODE_BINARY_OP:
+            analyze_expression(expr->left);
+            analyze_expression(expr->right);
+            
+            if (expr->value) {
+                data_type_t left_type = get_expression_type(expr->left);
+                data_type_t right_type = get_expression_type(expr->right);
+                
+                // Check operator compatibility
+                if (strcmp(expr->value, "+") == 0 || strcmp(expr->value, "-") == 0 ||
+                    strcmp(expr->value, "*") == 0 || strcmp(expr->value, "/") == 0 ||
+                    strcmp(expr->value, "**") == 0) {
+                    if ((left_type != TYPE_INT && left_type != TYPE_FLOAT) ||
+                        (right_type != TYPE_INT && right_type != TYPE_FLOAT)) {
+                        semantic_error("Arithmetic operators require numeric operands", expr->line_number);
+                    }
+                } else if (strcmp(expr->value, "and") == 0 || strcmp(expr->value, "or") == 0) {
+                    if (left_type != TYPE_BOOL || right_type != TYPE_BOOL) {
+                        semantic_error("Logical operators require boolean operands", expr->line_number);
+                    }
+                } else if (strcmp(expr->value, "==") == 0 || strcmp(expr->value, "!=") == 0) {
+                    if (left_type != right_type) {
+                        semantic_error("Equality operators require same types", expr->line_number);
+                    }
+                } else if (strcmp(expr->value, ">") == 0 || strcmp(expr->value, "<") == 0 ||
+                          strcmp(expr->value, ">=") == 0 || strcmp(expr->value, "<=") == 0) {
+                    if ((left_type != TYPE_INT && left_type != TYPE_FLOAT) ||
+                        (right_type != TYPE_INT && right_type != TYPE_FLOAT)) {
+                        semantic_error("Comparison operators require numeric operands", expr->line_number);
+                    }
+                }
+            }
+            break;
+            
+        case NODE_UNARY_OP:
+            analyze_expression(expr->left);
+            
+            if (expr->value) {
+                data_type_t operand_type = get_expression_type(expr->left);
+                
+                if (strcmp(expr->value, "not") == 0) {
+                    if (operand_type != TYPE_BOOL) {
+                        semantic_error("'not' operator requires boolean operand", expr->line_number);
+                    }
+                } else if (strcmp(expr->value, "-") == 0) {
+                    if (operand_type != TYPE_INT && operand_type != TYPE_FLOAT) {
+                        semantic_error("Unary minus requires numeric operand", expr->line_number);
+                    }
+                }
+            }
+            break;
+            
+        case NODE_CALL:
+            check_function_call(expr);
+            break;
+            
+        case NODE_STRING_ACCESS: {
+            // Check that variable is string type
+            if (expr->left && expr->left->type == NODE_VARIABLE) {
+                symbol_t* sym = find_symbol(expr->left->name);
+                if (!sym) {
+                    semantic_error("Variable used before declaration", expr->line_number);
+                } else if (sym->type != TYPE_STRING) {
+                    semantic_error("String access operator can only be used with string variables", expr->line_number);
+                }
+            }
+            
+            // Check that index is integer
+            if (expr->right) {
+                analyze_expression(expr->right);
+                if (get_expression_type(expr->right) != TYPE_INT) {
+                    semantic_error("String index must be integer", expr->line_number);
+                }
+            }
+            break;
+        }
+        
+        default:
+            break;
+    }
+}
+
+// Check function call
+bool check_function_call(node_t* call) {
+    if (!call || !call->name) return false;
+    
+    symbol_t* func_sym = find_symbol(call->name);
+    if (!func_sym) {
+        semantic_error("Function called before declaration", call->line_number);
+        return false;
+    }
+    
+    if (!func_sym->is_function) {
+        semantic_error("Attempting to call non-function", call->line_number);
+        return false;
+    }
+    
+    // Count arguments
+    int arg_count = 0;
+    node_t* arg = call->args;
+    while (arg) {
+        arg_count++;
+        analyze_expression(arg);
+        arg = arg->next;
+    }
+    
+    // Check argument count
+    if (arg_count > func_sym->param_count) {
+        semantic_error("Too many arguments in function call", call->line_number);
+        return false;
+    }
+    
+    if (arg_count < func_sym->required_params) {
+        semantic_error("Too few arguments in function call", call->line_number);
+        return false;
+    }
+    
+    // Check argument types
+    node_t* param = func_sym->node->params;
+    arg = call->args;
+    int i = 0;
+    
+    while (param && arg && i < arg_count) {
+        if (param->type == NODE_PARAM) {
+            data_type_t param_type = param->data_type;
+            data_type_t arg_type = get_expression_type(arg);
+            
+            if (!types_compatible(param_type, arg_type)) {
+                semantic_error("Argument type does not match parameter type", call->line_number);
+                return false;
+            }
+            i++;
+        }
+        param = param->next;
+        arg = arg->next;
+    }
+    
+    return true;
 }

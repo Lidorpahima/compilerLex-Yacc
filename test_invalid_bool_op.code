@@ -1,7 +1,0 @@
-def __main__() : {
-    int a = 10;
-    int b = 20;
-    bool f = True;
-    
-    bool p = a and b;
-}

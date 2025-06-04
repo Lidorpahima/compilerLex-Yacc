@@ -34,8 +34,8 @@
 /* Undocumented macros, especially those whose name start with YY_,
    are private implementation details.  Do not rely on them.  */
 
-#ifndef YY_YY_PARSER_TAB_H_INCLUDED
-# define YY_YY_PARSER_TAB_H_INCLUDED
+#ifndef YY_YY_HW1_TAB_H_INCLUDED
+# define YY_YY_HW1_TAB_H_INCLUDED
 /* Debug traces.  */
 #ifndef YYDEBUG
 # define YYDEBUG 0
@@ -50,48 +50,49 @@ extern int yydebug;
   enum yytokentype
   {
     ID = 258,
-    INT_LITERAL = 259,
-    FLOAT_LITERAL = 260,
-    STR_LITERAL = 261,
-    BOOL_LITERAL = 262,
-    DEF = 263,
-    IF = 264,
-    ELIF = 265,
-    ELSE = 266,
-    WHILE = 267,
-    RETURN = 268,
-    PASS = 269,
-    AND = 270,
-    OR = 271,
-    NOT = 272,
-    INT = 273,
-    FLOAT = 274,
-    BOOL = 275,
-    STRING = 276,
-    GE = 277,
-    LE = 278,
-    EQ = 279,
-    NE = 280,
-    GT = 281,
-    LT = 282,
-    ASSIGN = 283,
-    IS = 284,
-    PLUS = 285,
-    MINUS = 286,
-    TIMES = 287,
-    DIVIDE = 288,
-    POW = 289,
-    SEMICOLON = 290,
-    COLON = 291,
-    COMMA = 292,
-    LBRACE = 293,
-    RBRACE = 294,
-    LPAREN = 295,
-    RPAREN = 296,
-    LBRACKET = 297,
-    RBRACKET = 298,
-    ARROW = 299,
-    UMINUS = 300
+    INT_LIT = 259,
+    FLOAT_LIT = 260,
+    STRING_LIT = 261,
+    TRUE_LIT = 262,
+    FALSE_LIT = 263,
+    DEF = 264,
+    IF = 265,
+    ELIF = 266,
+    ELSE = 267,
+    WHILE = 268,
+    RETURN = 269,
+    PASS = 270,
+    AND = 271,
+    OR = 272,
+    NOT = 273,
+    IS = 274,
+    INT = 275,
+    FLOAT = 276,
+    BOOL = 277,
+    STRING = 278,
+    GE = 279,
+    LE = 280,
+    EQ = 281,
+    NE = 282,
+    GT = 283,
+    LT = 284,
+    ASSIGN = 285,
+    ARROW = 286,
+    PLUS = 287,
+    MINUS = 288,
+    TIMES = 289,
+    DIVIDE = 290,
+    POW = 291,
+    LPAREN = 292,
+    RPAREN = 293,
+    LBRACE = 294,
+    RBRACE = 295,
+    LBRACKET = 296,
+    RBRACKET = 297,
+    COLON = 298,
+    SEMICOLON = 299,
+    COMMA = 300,
+    UMINUS = 301
   };
 #endif
 
@@ -99,12 +100,13 @@ extern int yydebug;
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 37 "parser.y"
+#line 15 "hw1.y"
 
-    Node* node;
     char* str;
+    node_t* node;
+    data_type_t type;
 
-#line 108 "parser.tab.h"
+#line 110 "hw1.tab.h"
 
 };
 typedef union YYSTYPE YYSTYPE;
@@ -117,4 +119,4 @@ extern YYSTYPE yylval;
 
 int yyparse (void);
 
-#endif /* !YY_YY_PARSER_TAB_H_INCLUDED  */
+#endif /* !YY_YY_HW1_TAB_H_INCLUDED  */

@@ -1,11 +1,20 @@
-parser: parser.tab.c lex.yy.c ast.c
-	gcc -o parser parser.tab.c lex.yy.c ast.c -ll
+CC = gcc
+CFLAGS = -Wall -g
 
-parser.tab.c parser.tab.h: parser.y
-	bison -d parser.y
+OBJECTS = hw1.tab.o lex.yy.o ast.o 
 
-lex.yy.c: scanner.l
-	flex scanner.l
+compiler: $(OBJECTS)
+	$(CC) $(CFLAGS) -o compiler $(OBJECTS)
+
+lex.yy.c: hw1.l hw1.tab.h
+	flex hw1.l
+
+hw1.tab.c hw1.tab.h: hw1.y
+	bison -d hw1.y
+
+ast.o: ast.c ast.h
+	$(CC) $(CFLAGS) -c ast.c
+
 
 clean:
-	rm -f parser lex.yy.c parser.tab.c parser.tab.h
+	rm -f compiler lex.yy.c hw1.tab.c hw1.tab.h *.o

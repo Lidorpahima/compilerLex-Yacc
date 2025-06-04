@@ -1,6 +1,0 @@
-def __main__() : {
-    int x;
-    string str;
-    str = "hello";
-    x = -str;
-}
