@@ -80,6 +80,10 @@ extern int line_number;
 extern int error_count;
 extern int main_count;
 
+// AC3 code generation variables
+extern int temp_counter;
+extern int label_counter;
+
 // Function declarations
 node_t* make_node(node_type_t type, const char* value);
 void free_node(node_t* node);
@@ -109,5 +113,15 @@ void analyze_variable_declarations(node_t* decls);
 int count_parameters(node_t* params);
 int count_required_parameters(node_t* params);
 bool check_function_call(node_t* call);
+
+// AC3 code generation functions
+void generate_ac3_code(node_t* root);
+void generate_function_ac3(node_t* func);
+void generate_statement_ac3(node_t* stmt);
+char* generate_expression_ac3(node_t* expr);
+char* generate_condition_ac3(node_t* expr);
+char* generate_new_temp(void);
+char* generate_new_label(void);
+int calculate_frame_size(node_t* func);
 
 #endif

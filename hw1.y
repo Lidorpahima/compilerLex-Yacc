@@ -32,7 +32,7 @@ node_t* ast_root = NULL;
 %type <node> block variable_declarations variable_declaration variable_list variable_spec
 %type <node> statements statement simple_statement compound_statement
 %type <node> assignment_statement return_statement if_statement while_statement
-%type <node> expression_list expression
+%type <node> expression
 %type <node> function_call argument_list
 %type <node> string_access string_slice
 
@@ -595,6 +595,13 @@ int main(int argc, char** argv) {
                 printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
                 print_ast(ast_root, 0);
                 printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+                
+                // AC3 Code Generation
+                printf("⚡ Starting AC3 Code Generation...\n");
+                printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+                generate_ac3_code(ast_root);
+                printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+                
                 printf("🎉 \033[1;32mCOMPILATION SUCCESSFUL!\033[0m All phases completed without errors.\n");
                 printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
             } else {

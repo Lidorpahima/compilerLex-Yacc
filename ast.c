@@ -7,6 +7,10 @@ int line_number = 1;
 int error_count = 0;
 int main_count = 0;
 
+// AC3 code generation variables
+int temp_counter = 0;
+int label_counter = 0;
+
 // Create a new AST node
 node_t* make_node(node_type_t type, const char* value) {
     node_t* node = (node_t*)malloc(sizeof(node_t));
@@ -746,4 +750,350 @@ bool check_function_call(node_t* call) {
     }
     
     return true;
+}
+
+// AC3 code generation functions
+char* generate_new_temp(void) {
+    char* temp = (char*)malloc(10);
+    sprintf(temp, "t%d", temp_counter++);
+    return temp;
+}
+
+char* generate_new_label(void) {
+    char* label = (char*)malloc(10);
+    sprintf(label, "L%d", label_counter++);
+    return label;
+}
+
+int calculate_frame_size(node_t* func) {
+    // Basic frame size calculation - can be enhanced
+    int param_count = count_parameters(func->params);
+    return 20 + param_count * 4; // Base + parameters
+}
+
+void generate_ac3_code(node_t* root) {
+    if (!root) return;
+    
+    temp_counter = 0;
+    label_counter = 1; // Start from L1
+    
+    node_t* func = root;
+    while (func) {
+        if (func->type == NODE_FUNCTION) {
+            generate_function_ac3(func);
+        }
+        func = func->next;
+    }
+}
+
+void generate_function_ac3(node_t* func) {
+    if (!func) return;
+    
+    // Reset temp counter for each function
+    temp_counter = 0;
+    
+    // Convert __main__ to main for AC3
+    char* func_name = strcmp(func->name, "__main__") == 0 ? "main" : func->name;
+    
+    printf("%s:\n", func_name);
+    
+    int frame_size = calculate_frame_size(func);
+    printf("BeginFunc %d\n", frame_size);
+    
+    // Generate code for function body
+    if (func->body) {
+        generate_statement_ac3(func->body);
+    }
+    
+    printf("EndFunc\n");
+}
+
+void generate_statement_ac3(node_t* stmt) {
+    if (!stmt) return;
+    
+    switch (stmt->type) {
+        case NODE_BLOCK:
+            // Generate variable declarations
+            if (stmt->left) {
+                // Variable declarations are handled implicitly
+            }
+            // Generate statements
+            if (stmt->body) {
+                generate_statement_ac3(stmt->body);
+            }
+            break;
+            
+        case NODE_ASSIGN: {
+            char* rhs = generate_expression_ac3(stmt->right);
+            if (stmt->left && stmt->left->type == NODE_VARIABLE) {
+                printf("%s = %s\n", stmt->left->name, rhs);
+            }
+            free(rhs);
+            break;
+        }
+        
+        case NODE_IF: {
+            char* true_label = generate_new_label();
+            char* false_label = generate_new_label();
+            char* end_label = generate_new_label();
+            
+            // Generate condition directly in if statement
+            char* cond_str = generate_condition_ac3(stmt->condition);
+            printf("if %s Goto %s\n", cond_str, true_label);
+            printf("Goto %s\n", false_label);
+            
+            printf(" %s: ", true_label);
+            if (stmt->if_body) {
+                generate_statement_ac3(stmt->if_body);
+            }
+            
+            if (stmt->else_body) {
+                printf("Goto %s\n", end_label);
+                printf(" %s: ", false_label);
+                generate_statement_ac3(stmt->else_body);
+                printf(" %s: ", end_label);
+            } else {
+                printf(" %s: ", false_label);
+            }
+            
+            free(cond_str);
+            free(true_label);
+            free(false_label);
+            free(end_label);
+            break;
+        }
+        
+        case NODE_WHILE: {
+            char* loop_label = generate_new_label();
+            char* body_label = generate_new_label();
+            char* end_label = generate_new_label();
+            
+            printf("%s: ", loop_label);
+            char* cond_str = generate_condition_ac3(stmt->condition);
+            printf("if %s Goto %s\n", cond_str, body_label);
+            printf("Goto %s\n", end_label);
+            
+            printf(" %s: ", body_label);
+            if (stmt->body) {
+                generate_statement_ac3(stmt->body);
+            }
+            printf("Goto %s\n", loop_label);
+            
+            printf("%s: ", end_label);
+            
+            free(cond_str);
+            free(loop_label);
+            free(body_label);
+            free(end_label);
+            break;
+        }
+        
+        case NODE_RETURN:
+            if (stmt->left) {
+                char* ret_val = generate_expression_ac3(stmt->left);
+                printf("Return %s\n", ret_val);
+                free(ret_val);
+            } else {
+                printf("Return\n");
+            }
+            break;
+            
+        case NODE_CALL: {
+            // Handle function call arguments
+            node_t* arg = stmt->args;
+            int param_size = 0;
+            
+            while (arg) {
+                char* arg_val = generate_expression_ac3(arg);
+                printf("PushParam %s\n", arg_val);
+                param_size += 8; // Assume 8 bytes per parameter
+                free(arg_val);
+                arg = arg->next;
+            }
+            
+            char* temp = generate_new_temp();
+            printf("%s = LCall %s\n", temp, stmt->name);
+            
+            if (param_size > 0) {
+                printf("PopParams %d\n", param_size);
+            }
+            
+            free(temp);
+            break;
+        }
+        
+        default:
+            break;
+    }
+    
+    // Process next statement
+    if (stmt->next) {
+        generate_statement_ac3(stmt->next);
+    }
+}
+
+char* generate_condition_ac3(node_t* expr) {
+    if (!expr) return strdup("0");
+    
+    if (expr->type == NODE_BINARY_OP && expr->value) {
+        // For comparison operators, generate direct condition
+        if (strcmp(expr->value, "==") == 0 || strcmp(expr->value, "!=") == 0 ||
+            strcmp(expr->value, ">") == 0 || strcmp(expr->value, "<") == 0 ||
+            strcmp(expr->value, ">=") == 0 || strcmp(expr->value, "<=") == 0) {
+            
+            // Handle left operand
+            char* left;
+            if (expr->left->type == NODE_VARIABLE) {
+                left = strdup(expr->left->name);
+            } else {
+                left = generate_expression_ac3(expr->left);
+            }
+            
+            // Handle right operand - keep literals direct
+            char* right;
+            if (expr->right->type == NODE_LITERAL) {
+                right = strdup(expr->right->value);
+            } else if (expr->right->type == NODE_VARIABLE) {
+                right = strdup(expr->right->name);
+            } else {
+                right = generate_expression_ac3(expr->right);
+            }
+            
+            char* result = malloc(strlen(left) + strlen(right) + strlen(expr->value) + 5);
+            sprintf(result, "%s %s %s", left, expr->value, right);
+            
+            free(left);
+            free(right);
+            return result;
+        }
+    }
+    
+    // For other expressions, generate normally
+    return generate_expression_ac3(expr);
+}
+
+char* generate_expression_ac3(node_t* expr) {
+    if (!expr) return strdup("0");
+    
+    switch (expr->type) {
+        case NODE_LITERAL: {
+            char* temp = generate_new_temp();
+            printf("%s = %s\n", temp, expr->value ? expr->value : "0");
+            return temp;
+        }
+            
+        case NODE_VARIABLE:
+            return strdup(expr->name ? expr->name : "unknown");
+            
+        case NODE_BINARY_OP: {
+            if (!expr->value) return strdup("0");
+            
+            // Handle short-circuit evaluation for AND and OR
+            if (strcmp(expr->value, "and") == 0) {
+                char* left = generate_expression_ac3(expr->left);
+                char* temp1 = generate_new_temp();
+                char* true_label = generate_new_label();
+                char* false_label = generate_new_label();
+                char* end_label = generate_new_label();
+                
+                printf("%s = %s\n", temp1, left);
+                printf("if %s Goto %s\n", temp1, true_label);
+                printf("Goto %s\n", false_label);
+                
+                printf(" %s: ", true_label);
+                char* right = generate_expression_ac3(expr->right);
+                printf("%s = %s\n", temp1, right);
+                printf("Goto %s\n", end_label);
+                
+                printf(" %s: %s = 0\n", false_label, temp1);
+                printf(" %s: ", end_label);
+                
+                free(left);
+                free(right);
+                free(true_label);
+                free(false_label);
+                free(end_label);
+                return temp1;
+            }
+            
+            if (strcmp(expr->value, "or") == 0) {
+                char* left = generate_expression_ac3(expr->left);
+                char* temp1 = generate_new_temp();
+                char* true_label = generate_new_label();
+                char* false_label = generate_new_label();
+                char* end_label = generate_new_label();
+                
+                printf("%s = %s\n", temp1, left);
+                printf("if %s Goto %s\n", temp1, true_label);
+                printf("Goto %s\n", false_label);
+                
+                printf(" %s: %s = 1\n", true_label, temp1);
+                printf("Goto %s\n", end_label);
+                
+                printf(" %s: ", false_label);
+                char* right = generate_expression_ac3(expr->right);
+                printf("%s = %s\n", temp1, right);
+                
+                printf(" %s: ", end_label);
+                
+                free(left);
+                free(right);
+                free(true_label);
+                free(false_label);
+                free(end_label);
+                return temp1;
+            }
+            
+            // Regular binary operations
+            char* left = generate_expression_ac3(expr->left);
+            char* right = generate_expression_ac3(expr->right);
+            char* temp = generate_new_temp();
+            
+            printf("%s = %s %s %s\n", temp, left, expr->value, right);
+            
+            free(left);
+            free(right);
+            return temp;
+        }
+        
+        case NODE_UNARY_OP: {
+            char* operand = generate_expression_ac3(expr->left);
+            char* temp = generate_new_temp();
+            
+            if (strcmp(expr->value, "not") == 0) {
+                printf("%s = !%s\n", temp, operand);
+            } else if (strcmp(expr->value, "-") == 0) {
+                printf("%s = -%s\n", temp, operand);
+            }
+            
+            free(operand);
+            return temp;
+        }
+        
+        case NODE_CALL: {
+            // Handle function call arguments
+            node_t* arg = expr->args;
+            int param_size = 0;
+            
+            while (arg) {
+                char* arg_val = generate_expression_ac3(arg);
+                printf("PushParam %s\n", arg_val);
+                param_size += 8; // Assume 8 bytes per parameter
+                free(arg_val);
+                arg = arg->next;
+            }
+            
+            char* temp = generate_new_temp();
+            printf("%s = LCall %s\n", temp, expr->name);
+            
+            if (param_size > 0) {
+                printf("PopParams %d\n", param_size);
+            }
+            
+            return temp;
+        }
+        
+        default:
+            return strdup("0");
+    }
 }

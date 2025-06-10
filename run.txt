@@ -1,6 +1,14 @@
 sudo apt-get update
 sudo apt-get install flex bison build-essential
 
+# Commands to build and test the compiler:
+
+# 1. Build the compiler
+make clean
 make
 
-./compiler test.code
+# 2. Run the test
+make test
+
+# Or run manually:
+# ./compiler test.code

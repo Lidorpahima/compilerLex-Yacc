@@ -15,6 +15,10 @@ hw1.tab.c hw1.tab.h: hw1.y
 ast.o: ast.c ast.h
 	$(CC) $(CFLAGS) -c ast.c
 
+test: compiler
+	./compiler test.code
 
 clean:
 	rm -f compiler lex.yy.c hw1.tab.c hw1.tab.h *.o
+
+.PHONY: all clean test
