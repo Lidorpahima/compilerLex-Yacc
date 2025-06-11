@@ -66,7 +66,7 @@
 
 
 /* First part of user prologue.  */
-#line 1 "hw1.y"
+#line 1 "parser.y"
 
 #include "ast.h"
 #include <stdio.h>
@@ -80,7 +80,7 @@ extern int line_number;
 void yyerror(const char* s);
 node_t* ast_root = NULL;
 
-#line 84 "hw1.tab.c"
+#line 84 "parser.tab.c"
 
 # ifndef YY_CAST
 #  ifdef __cplusplus
@@ -113,8 +113,8 @@ node_t* ast_root = NULL;
 
 /* Use api.header.include to #include this header
    instead of duplicating it here.  */
-#ifndef YY_YY_HW1_TAB_H_INCLUDED
-# define YY_YY_HW1_TAB_H_INCLUDED
+#ifndef YY_YY_PARSER_TAB_H_INCLUDED
+# define YY_YY_PARSER_TAB_H_INCLUDED
 /* Debug traces.  */
 #ifndef YYDEBUG
 # define YYDEBUG 0
@@ -179,13 +179,13 @@ extern int yydebug;
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 15 "hw1.y"
+#line 15 "parser.y"
 
     char* str;
     node_t* node;
     data_type_t type;
 
-#line 189 "hw1.tab.c"
+#line 189 "parser.tab.c"
 
 };
 typedef union YYSTYPE YYSTYPE;
@@ -198,7 +198,7 @@ extern YYSTYPE yylval;
 
 int yyparse (void);
 
-#endif /* !YY_YY_HW1_TAB_H_INCLUDED  */
+#endif /* !YY_YY_PARSER_TAB_H_INCLUDED  */
 
 
 
@@ -1507,35 +1507,35 @@ yyreduce:
   switch (yyn)
     {
   case 2:
-#line 56 "hw1.y"
+#line 56 "parser.y"
                   {
         ast_root = (yyvsp[0].node);
         (yyval.node) = (yyvsp[0].node);
     }
-#line 1516 "hw1.tab.c"
+#line 1516 "parser.tab.c"
     break;
 
   case 3:
-#line 63 "hw1.y"
+#line 63 "parser.y"
              {
         (yyval.node) = (yyvsp[0].node);
     }
-#line 1524 "hw1.tab.c"
+#line 1524 "parser.tab.c"
     break;
 
   case 4:
-#line 66 "hw1.y"
+#line 66 "parser.y"
                              {
         node_t* last = (yyvsp[-1].node);
         while (last->next) last = last->next;
         last->next = (yyvsp[0].node);
         (yyval.node) = (yyvsp[-1].node);
     }
-#line 1535 "hw1.tab.c"
+#line 1535 "parser.tab.c"
     break;
 
   case 5:
-#line 75 "hw1.y"
+#line 75 "parser.y"
                                                 {
         (yyval.node) = make_node(NODE_FUNCTION, (yyvsp[-5].str));
         (yyval.node)->name = strdup((yyvsp[-5].str));
@@ -1544,11 +1544,11 @@ yyreduce:
         (yyval.node)->body = (yyvsp[0].node);
         free((yyvsp[-5].str));
     }
-#line 1548 "hw1.tab.c"
+#line 1548 "parser.tab.c"
     break;
 
   case 6:
-#line 83 "hw1.y"
+#line 83 "parser.y"
                                                              {
         (yyval.node) = make_node(NODE_FUNCTION, (yyvsp[-7].str));
         (yyval.node)->name = strdup((yyvsp[-7].str));
@@ -1557,11 +1557,11 @@ yyreduce:
         (yyval.node)->body = (yyvsp[0].node);
         free((yyvsp[-7].str));
     }
-#line 1561 "hw1.tab.c"
+#line 1561 "parser.tab.c"
     break;
 
   case 7:
-#line 91 "hw1.y"
+#line 91 "parser.y"
                                                                        {
         (yyval.node) = make_node(NODE_FUNCTION, (yyvsp[-6].str));
         (yyval.node)->name = strdup((yyvsp[-6].str));
@@ -1570,11 +1570,11 @@ yyreduce:
         (yyval.node)->body = (yyvsp[-1].node);
         free((yyvsp[-6].str));
     }
-#line 1574 "hw1.tab.c"
+#line 1574 "parser.tab.c"
     break;
 
   case 8:
-#line 99 "hw1.y"
+#line 99 "parser.y"
                                                                                   {
         (yyval.node) = make_node(NODE_FUNCTION, (yyvsp[-8].str));
         (yyval.node)->name = strdup((yyvsp[-8].str));
@@ -1583,46 +1583,46 @@ yyreduce:
         (yyval.node)->body = (yyvsp[-1].node);
         free((yyvsp[-8].str));
     }
-#line 1587 "hw1.tab.c"
+#line 1587 "parser.tab.c"
     break;
 
   case 9:
-#line 110 "hw1.y"
+#line 110 "parser.y"
                 {
         (yyval.node) = NULL;
     }
-#line 1595 "hw1.tab.c"
+#line 1595 "parser.tab.c"
     break;
 
   case 10:
-#line 113 "hw1.y"
+#line 113 "parser.y"
                      {
         (yyval.node) = (yyvsp[0].node);
     }
-#line 1603 "hw1.tab.c"
+#line 1603 "parser.tab.c"
     break;
 
   case 11:
-#line 119 "hw1.y"
+#line 119 "parser.y"
                     {
         (yyval.node) = (yyvsp[0].node);
     }
-#line 1611 "hw1.tab.c"
+#line 1611 "parser.tab.c"
     break;
 
   case 12:
-#line 122 "hw1.y"
+#line 122 "parser.y"
                                                {
         node_t* last = (yyvsp[-2].node);
         while (last->next) last = last->next;
         last->next = (yyvsp[0].node);
         (yyval.node) = (yyvsp[-2].node);
     }
-#line 1622 "hw1.tab.c"
+#line 1622 "parser.tab.c"
     break;
 
   case 13:
-#line 131 "hw1.y"
+#line 131 "parser.y"
                      {
         // Set type for all parameters in this group
         node_t* param = (yyvsp[0].node);
@@ -1632,41 +1632,41 @@ yyreduce:
         }
         (yyval.node) = (yyvsp[0].node);
     }
-#line 1636 "hw1.tab.c"
+#line 1636 "parser.tab.c"
     break;
 
   case 14:
-#line 143 "hw1.y"
+#line 143 "parser.y"
           {
         (yyval.node) = (yyvsp[0].node);
     }
-#line 1644 "hw1.tab.c"
+#line 1644 "parser.tab.c"
     break;
 
   case 15:
-#line 146 "hw1.y"
+#line 146 "parser.y"
                               {
         node_t* last = (yyvsp[-2].node);
         while (last->next) last = last->next;
         last->next = (yyvsp[0].node);
         (yyval.node) = (yyvsp[-2].node);
     }
-#line 1655 "hw1.tab.c"
+#line 1655 "parser.tab.c"
     break;
 
   case 16:
-#line 155 "hw1.y"
+#line 155 "parser.y"
        {
         (yyval.node) = make_node(NODE_PARAM, (yyvsp[0].str));
         (yyval.node)->name = strdup((yyvsp[0].str));
         (yyval.node)->has_default = false;
         free((yyvsp[0].str));
     }
-#line 1666 "hw1.tab.c"
+#line 1666 "parser.tab.c"
     break;
 
   case 17:
-#line 161 "hw1.y"
+#line 161 "parser.y"
                        {
         (yyval.node) = make_node(NODE_PARAM, (yyvsp[-2].str));
         (yyval.node)->name = strdup((yyvsp[-2].str));
@@ -1674,103 +1674,103 @@ yyreduce:
         (yyval.node)->default_value = (yyvsp[0].node);
         free((yyvsp[-2].str));
     }
-#line 1678 "hw1.tab.c"
+#line 1678 "parser.tab.c"
     break;
 
   case 18:
-#line 171 "hw1.y"
+#line 171 "parser.y"
             { (yyval.type) = TYPE_INT; }
-#line 1684 "hw1.tab.c"
+#line 1684 "parser.tab.c"
     break;
 
   case 19:
-#line 172 "hw1.y"
+#line 172 "parser.y"
             { (yyval.type) = TYPE_FLOAT; }
-#line 1690 "hw1.tab.c"
+#line 1690 "parser.tab.c"
     break;
 
   case 20:
-#line 173 "hw1.y"
+#line 173 "parser.y"
             { (yyval.type) = TYPE_BOOL; }
-#line 1696 "hw1.tab.c"
+#line 1696 "parser.tab.c"
     break;
 
   case 21:
-#line 174 "hw1.y"
+#line 174 "parser.y"
              { (yyval.type) = TYPE_STRING; }
-#line 1702 "hw1.tab.c"
+#line 1702 "parser.tab.c"
     break;
 
   case 22:
-#line 178 "hw1.y"
+#line 178 "parser.y"
             {
         (yyval.node) = make_node(NODE_LITERAL, (yyvsp[0].str));
         (yyval.node)->data_type = TYPE_INT;
         free((yyvsp[0].str));
     }
-#line 1712 "hw1.tab.c"
+#line 1712 "parser.tab.c"
     break;
 
   case 23:
-#line 183 "hw1.y"
+#line 183 "parser.y"
                 {
         (yyval.node) = make_node(NODE_LITERAL, (yyvsp[0].str));
         (yyval.node)->data_type = TYPE_FLOAT;
         free((yyvsp[0].str));
     }
-#line 1722 "hw1.tab.c"
+#line 1722 "parser.tab.c"
     break;
 
   case 24:
-#line 188 "hw1.y"
+#line 188 "parser.y"
                  {
         (yyval.node) = make_node(NODE_LITERAL, (yyvsp[0].str));
         (yyval.node)->data_type = TYPE_STRING;
         free((yyvsp[0].str));
     }
-#line 1732 "hw1.tab.c"
+#line 1732 "parser.tab.c"
     break;
 
   case 25:
-#line 193 "hw1.y"
+#line 193 "parser.y"
                {
         (yyval.node) = make_node(NODE_LITERAL, "True");
         (yyval.node)->data_type = TYPE_BOOL;
         free((yyvsp[0].str));
     }
-#line 1742 "hw1.tab.c"
+#line 1742 "parser.tab.c"
     break;
 
   case 26:
-#line 198 "hw1.y"
+#line 198 "parser.y"
                 {
         (yyval.node) = make_node(NODE_LITERAL, "False");
         (yyval.node)->data_type = TYPE_BOOL;
         free((yyvsp[0].str));
     }
-#line 1752 "hw1.tab.c"
+#line 1752 "parser.tab.c"
     break;
 
   case 27:
-#line 206 "hw1.y"
+#line 206 "parser.y"
                                                    {
         (yyval.node) = make_node(NODE_BLOCK, NULL);
         (yyval.node)->left = (yyvsp[-2].node);  // declarations
         (yyval.node)->body = (yyvsp[-1].node);  // statements
     }
-#line 1762 "hw1.tab.c"
+#line 1762 "parser.tab.c"
     break;
 
   case 28:
-#line 214 "hw1.y"
+#line 214 "parser.y"
                 {
         (yyval.node) = NULL;
     }
-#line 1770 "hw1.tab.c"
+#line 1770 "parser.tab.c"
     break;
 
   case 29:
-#line 217 "hw1.y"
+#line 217 "parser.y"
                                                  {
         if ((yyvsp[-1].node)) {
             node_t* last = (yyvsp[-1].node);
@@ -1781,11 +1781,11 @@ yyreduce:
             (yyval.node) = (yyvsp[0].node);
         }
     }
-#line 1785 "hw1.tab.c"
+#line 1785 "parser.tab.c"
     break;
 
   case 30:
-#line 230 "hw1.y"
+#line 230 "parser.y"
                                  {
         // Set type for all variables in the list
         node_t* var = (yyvsp[-1].node);
@@ -1795,59 +1795,59 @@ yyreduce:
         }
         (yyval.node) = (yyvsp[-1].node);
     }
-#line 1799 "hw1.tab.c"
+#line 1799 "parser.tab.c"
     break;
 
   case 31:
-#line 242 "hw1.y"
+#line 242 "parser.y"
                   {
         (yyval.node) = (yyvsp[0].node);
     }
-#line 1807 "hw1.tab.c"
+#line 1807 "parser.tab.c"
     break;
 
   case 32:
-#line 245 "hw1.y"
+#line 245 "parser.y"
                                         {
         node_t* last = (yyvsp[-2].node);
         while (last->next) last = last->next;
         last->next = (yyvsp[0].node);
         (yyval.node) = (yyvsp[-2].node);
     }
-#line 1818 "hw1.tab.c"
+#line 1818 "parser.tab.c"
     break;
 
   case 33:
-#line 254 "hw1.y"
+#line 254 "parser.y"
        {
         (yyval.node) = make_node(NODE_VARIABLE, (yyvsp[0].str));
         (yyval.node)->name = strdup((yyvsp[0].str));
         free((yyvsp[0].str));
     }
-#line 1828 "hw1.tab.c"
+#line 1828 "parser.tab.c"
     break;
 
   case 34:
-#line 259 "hw1.y"
+#line 259 "parser.y"
                            {
         (yyval.node) = make_node(NODE_VARIABLE, (yyvsp[-2].str));
         (yyval.node)->name = strdup((yyvsp[-2].str));
         (yyval.node)->right = (yyvsp[0].node);  // initialization expression
         free((yyvsp[-2].str));
     }
-#line 1839 "hw1.tab.c"
+#line 1839 "parser.tab.c"
     break;
 
   case 35:
-#line 268 "hw1.y"
+#line 268 "parser.y"
                 {
         (yyval.node) = NULL;
     }
-#line 1847 "hw1.tab.c"
+#line 1847 "parser.tab.c"
     break;
 
   case 36:
-#line 271 "hw1.y"
+#line 271 "parser.y"
                            {
         if ((yyvsp[-1].node)) {
             node_t* last = (yyvsp[-1].node);
@@ -1858,83 +1858,83 @@ yyreduce:
             (yyval.node) = (yyvsp[0].node);
         }
     }
-#line 1862 "hw1.tab.c"
+#line 1862 "parser.tab.c"
     break;
 
   case 37:
-#line 284 "hw1.y"
+#line 284 "parser.y"
                                {
         (yyval.node) = (yyvsp[-1].node);
     }
-#line 1870 "hw1.tab.c"
+#line 1870 "parser.tab.c"
     break;
 
   case 38:
-#line 287 "hw1.y"
+#line 287 "parser.y"
                          {
         (yyval.node) = (yyvsp[0].node);
     }
-#line 1878 "hw1.tab.c"
+#line 1878 "parser.tab.c"
     break;
 
   case 39:
-#line 293 "hw1.y"
+#line 293 "parser.y"
                          {
         (yyval.node) = (yyvsp[0].node);
     }
-#line 1886 "hw1.tab.c"
+#line 1886 "parser.tab.c"
     break;
 
   case 40:
-#line 296 "hw1.y"
+#line 296 "parser.y"
                     {
         (yyval.node) = (yyvsp[0].node);
     }
-#line 1894 "hw1.tab.c"
+#line 1894 "parser.tab.c"
     break;
 
   case 41:
-#line 299 "hw1.y"
+#line 299 "parser.y"
                        {
         (yyval.node) = (yyvsp[0].node);
     }
-#line 1902 "hw1.tab.c"
+#line 1902 "parser.tab.c"
     break;
 
   case 42:
-#line 302 "hw1.y"
+#line 302 "parser.y"
            {
         (yyval.node) = make_node(NODE_PASS, NULL);
     }
-#line 1910 "hw1.tab.c"
+#line 1910 "parser.tab.c"
     break;
 
   case 43:
-#line 308 "hw1.y"
+#line 308 "parser.y"
                  {
         (yyval.node) = (yyvsp[0].node);
     }
-#line 1918 "hw1.tab.c"
+#line 1918 "parser.tab.c"
     break;
 
   case 44:
-#line 311 "hw1.y"
+#line 311 "parser.y"
                       {
         (yyval.node) = (yyvsp[0].node);
     }
-#line 1926 "hw1.tab.c"
+#line 1926 "parser.tab.c"
     break;
 
   case 45:
-#line 314 "hw1.y"
+#line 314 "parser.y"
             {
         (yyval.node) = (yyvsp[0].node);
     }
-#line 1934 "hw1.tab.c"
+#line 1934 "parser.tab.c"
     break;
 
   case 46:
-#line 320 "hw1.y"
+#line 320 "parser.y"
                          {
         (yyval.node) = make_node(NODE_ASSIGN, NULL);
         (yyval.node)->left = make_node(NODE_VARIABLE, (yyvsp[-2].str));
@@ -1942,341 +1942,341 @@ yyreduce:
         (yyval.node)->right = (yyvsp[0].node);
         free((yyvsp[-2].str));
     }
-#line 1946 "hw1.tab.c"
+#line 1946 "parser.tab.c"
     break;
 
   case 47:
-#line 327 "hw1.y"
+#line 327 "parser.y"
                                       {
         (yyval.node) = make_node(NODE_ASSIGN, NULL);
         (yyval.node)->left = (yyvsp[-2].node);
         (yyval.node)->right = (yyvsp[0].node);
     }
-#line 1956 "hw1.tab.c"
+#line 1956 "parser.tab.c"
     break;
 
   case 48:
-#line 335 "hw1.y"
+#line 335 "parser.y"
            {
         (yyval.node) = make_node(NODE_RETURN, NULL);
     }
-#line 1964 "hw1.tab.c"
+#line 1964 "parser.tab.c"
     break;
 
   case 49:
-#line 338 "hw1.y"
+#line 338 "parser.y"
                         {
         (yyval.node) = make_node(NODE_RETURN, NULL);
         (yyval.node)->left = (yyvsp[0].node);
     }
-#line 1973 "hw1.tab.c"
+#line 1973 "parser.tab.c"
     break;
 
   case 50:
-#line 345 "hw1.y"
+#line 345 "parser.y"
                               {
         (yyval.node) = make_node(NODE_IF, NULL);
         (yyval.node)->condition = (yyvsp[-2].node);
         (yyval.node)->if_body = (yyvsp[0].node);
     }
-#line 1983 "hw1.tab.c"
+#line 1983 "parser.tab.c"
     break;
 
   case 51:
-#line 350 "hw1.y"
+#line 350 "parser.y"
                                                      {
         (yyval.node) = make_node(NODE_IF, NULL);
         (yyval.node)->condition = (yyvsp[-3].node);
         (yyval.node)->if_body = (yyvsp[-1].node);
     }
-#line 1993 "hw1.tab.c"
+#line 1993 "parser.tab.c"
     break;
 
   case 52:
-#line 355 "hw1.y"
+#line 355 "parser.y"
                                                  {
         (yyval.node) = make_node(NODE_IF, NULL);
         (yyval.node)->condition = (yyvsp[-5].node);
         (yyval.node)->if_body = (yyvsp[-3].node);
         (yyval.node)->else_body = (yyvsp[0].node);
     }
-#line 2004 "hw1.tab.c"
+#line 2004 "parser.tab.c"
     break;
 
   case 53:
-#line 361 "hw1.y"
+#line 361 "parser.y"
                                                                                            {
         (yyval.node) = make_node(NODE_IF, NULL);
         (yyval.node)->condition = (yyvsp[-7].node);
         (yyval.node)->if_body = (yyvsp[-5].node);
         (yyval.node)->else_body = (yyvsp[-1].node);
     }
-#line 2015 "hw1.tab.c"
+#line 2015 "parser.tab.c"
     break;
 
   case 54:
-#line 370 "hw1.y"
+#line 370 "parser.y"
                                  {
         (yyval.node) = make_node(NODE_WHILE, NULL);
         (yyval.node)->condition = (yyvsp[-2].node);
         (yyval.node)->body = (yyvsp[0].node);
     }
-#line 2025 "hw1.tab.c"
+#line 2025 "parser.tab.c"
     break;
 
   case 55:
-#line 375 "hw1.y"
+#line 375 "parser.y"
                                                         {
         (yyval.node) = make_node(NODE_WHILE, NULL);
         (yyval.node)->condition = (yyvsp[-3].node);
         (yyval.node)->body = (yyvsp[-1].node);
     }
-#line 2035 "hw1.tab.c"
+#line 2035 "parser.tab.c"
     break;
 
   case 56:
-#line 383 "hw1.y"
+#line 383 "parser.y"
                      {
         (yyval.node) = make_node(NODE_CALL, (yyvsp[-2].str));
         (yyval.node)->name = strdup((yyvsp[-2].str));
         (yyval.node)->args = NULL;
         free((yyvsp[-2].str));
     }
-#line 2046 "hw1.tab.c"
+#line 2046 "parser.tab.c"
     break;
 
   case 57:
-#line 389 "hw1.y"
+#line 389 "parser.y"
                                      {
         (yyval.node) = make_node(NODE_CALL, (yyvsp[-3].str));
         (yyval.node)->name = strdup((yyvsp[-3].str));
         (yyval.node)->args = (yyvsp[-1].node);
         free((yyvsp[-3].str));
     }
-#line 2057 "hw1.tab.c"
+#line 2057 "parser.tab.c"
     break;
 
   case 58:
-#line 398 "hw1.y"
+#line 398 "parser.y"
                {
         (yyval.node) = (yyvsp[0].node);
     }
-#line 2065 "hw1.tab.c"
+#line 2065 "parser.tab.c"
     break;
 
   case 59:
-#line 401 "hw1.y"
+#line 401 "parser.y"
                                      {
         node_t* last = (yyvsp[-2].node);
         while (last->next) last = last->next;
         last->next = (yyvsp[0].node);
         (yyval.node) = (yyvsp[-2].node);
     }
-#line 2076 "hw1.tab.c"
+#line 2076 "parser.tab.c"
     break;
 
   case 60:
-#line 410 "hw1.y"
+#line 410 "parser.y"
             {
         (yyval.node) = (yyvsp[0].node);
     }
-#line 2084 "hw1.tab.c"
+#line 2084 "parser.tab.c"
     break;
 
   case 61:
-#line 413 "hw1.y"
+#line 413 "parser.y"
          {
         (yyval.node) = make_node(NODE_VARIABLE, (yyvsp[0].str));
         (yyval.node)->name = strdup((yyvsp[0].str));
         free((yyvsp[0].str));
     }
-#line 2094 "hw1.tab.c"
+#line 2094 "parser.tab.c"
     break;
 
   case 62:
-#line 418 "hw1.y"
+#line 418 "parser.y"
                     {
         (yyval.node) = (yyvsp[0].node);
     }
-#line 2102 "hw1.tab.c"
+#line 2102 "parser.tab.c"
     break;
 
   case 63:
-#line 421 "hw1.y"
+#line 421 "parser.y"
                     {
         (yyval.node) = (yyvsp[0].node);
     }
-#line 2110 "hw1.tab.c"
+#line 2110 "parser.tab.c"
     break;
 
   case 64:
-#line 424 "hw1.y"
+#line 424 "parser.y"
                                {
         (yyval.node) = (yyvsp[-1].node);
     }
-#line 2118 "hw1.tab.c"
+#line 2118 "parser.tab.c"
     break;
 
   case 65:
-#line 427 "hw1.y"
+#line 427 "parser.y"
                                  {
         (yyval.node) = make_node(NODE_BINARY_OP, "+");
         (yyval.node)->left = (yyvsp[-2].node);
         (yyval.node)->right = (yyvsp[0].node);
     }
-#line 2128 "hw1.tab.c"
+#line 2128 "parser.tab.c"
     break;
 
   case 66:
-#line 432 "hw1.y"
+#line 432 "parser.y"
                                   {
         (yyval.node) = make_node(NODE_BINARY_OP, "-");
         (yyval.node)->left = (yyvsp[-2].node);
         (yyval.node)->right = (yyvsp[0].node);
     }
-#line 2138 "hw1.tab.c"
+#line 2138 "parser.tab.c"
     break;
 
   case 67:
-#line 437 "hw1.y"
+#line 437 "parser.y"
                                   {
         (yyval.node) = make_node(NODE_BINARY_OP, "*");
         (yyval.node)->left = (yyvsp[-2].node);
         (yyval.node)->right = (yyvsp[0].node);
     }
-#line 2148 "hw1.tab.c"
+#line 2148 "parser.tab.c"
     break;
 
   case 68:
-#line 442 "hw1.y"
+#line 442 "parser.y"
                                    {
         (yyval.node) = make_node(NODE_BINARY_OP, "/");
         (yyval.node)->left = (yyvsp[-2].node);
         (yyval.node)->right = (yyvsp[0].node);
     }
-#line 2158 "hw1.tab.c"
+#line 2158 "parser.tab.c"
     break;
 
   case 69:
-#line 447 "hw1.y"
+#line 447 "parser.y"
                                 {
         (yyval.node) = make_node(NODE_BINARY_OP, "**");
         (yyval.node)->left = (yyvsp[-2].node);
         (yyval.node)->right = (yyvsp[0].node);
     }
-#line 2168 "hw1.tab.c"
+#line 2168 "parser.tab.c"
     break;
 
   case 70:
-#line 452 "hw1.y"
+#line 452 "parser.y"
                                {
         (yyval.node) = make_node(NODE_BINARY_OP, ">");
         (yyval.node)->left = (yyvsp[-2].node);
         (yyval.node)->right = (yyvsp[0].node);
     }
-#line 2178 "hw1.tab.c"
+#line 2178 "parser.tab.c"
     break;
 
   case 71:
-#line 457 "hw1.y"
+#line 457 "parser.y"
                                {
         (yyval.node) = make_node(NODE_BINARY_OP, "<");
         (yyval.node)->left = (yyvsp[-2].node);
         (yyval.node)->right = (yyvsp[0].node);
     }
-#line 2188 "hw1.tab.c"
+#line 2188 "parser.tab.c"
     break;
 
   case 72:
-#line 462 "hw1.y"
+#line 462 "parser.y"
                                {
         (yyval.node) = make_node(NODE_BINARY_OP, ">=");
         (yyval.node)->left = (yyvsp[-2].node);
         (yyval.node)->right = (yyvsp[0].node);
     }
-#line 2198 "hw1.tab.c"
+#line 2198 "parser.tab.c"
     break;
 
   case 73:
-#line 467 "hw1.y"
+#line 467 "parser.y"
                                {
         (yyval.node) = make_node(NODE_BINARY_OP, "<=");
         (yyval.node)->left = (yyvsp[-2].node);
         (yyval.node)->right = (yyvsp[0].node);
     }
-#line 2208 "hw1.tab.c"
+#line 2208 "parser.tab.c"
     break;
 
   case 74:
-#line 472 "hw1.y"
+#line 472 "parser.y"
                                {
         (yyval.node) = make_node(NODE_BINARY_OP, "==");
         (yyval.node)->left = (yyvsp[-2].node);
         (yyval.node)->right = (yyvsp[0].node);
     }
-#line 2218 "hw1.tab.c"
+#line 2218 "parser.tab.c"
     break;
 
   case 75:
-#line 477 "hw1.y"
+#line 477 "parser.y"
                                {
         (yyval.node) = make_node(NODE_BINARY_OP, "!=");
         (yyval.node)->left = (yyvsp[-2].node);
         (yyval.node)->right = (yyvsp[0].node);
     }
-#line 2228 "hw1.tab.c"
+#line 2228 "parser.tab.c"
     break;
 
   case 76:
-#line 482 "hw1.y"
+#line 482 "parser.y"
                                 {
         (yyval.node) = make_node(NODE_BINARY_OP, "and");
         (yyval.node)->left = (yyvsp[-2].node);
         (yyval.node)->right = (yyvsp[0].node);
     }
-#line 2238 "hw1.tab.c"
+#line 2238 "parser.tab.c"
     break;
 
   case 77:
-#line 487 "hw1.y"
+#line 487 "parser.y"
                                {
         (yyval.node) = make_node(NODE_BINARY_OP, "or");
         (yyval.node)->left = (yyvsp[-2].node);
         (yyval.node)->right = (yyvsp[0].node);
     }
-#line 2248 "hw1.tab.c"
+#line 2248 "parser.tab.c"
     break;
 
   case 78:
-#line 492 "hw1.y"
+#line 492 "parser.y"
                                {
         (yyval.node) = make_node(NODE_BINARY_OP, "is");
         (yyval.node)->left = (yyvsp[-2].node);
         (yyval.node)->right = (yyvsp[0].node);
     }
-#line 2258 "hw1.tab.c"
+#line 2258 "parser.tab.c"
     break;
 
   case 79:
-#line 497 "hw1.y"
+#line 497 "parser.y"
                      {
         (yyval.node) = make_node(NODE_UNARY_OP, "not");
         (yyval.node)->left = (yyvsp[0].node);
     }
-#line 2267 "hw1.tab.c"
+#line 2267 "parser.tab.c"
     break;
 
   case 80:
-#line 501 "hw1.y"
+#line 501 "parser.y"
                                     {
         (yyval.node) = make_node(NODE_UNARY_OP, "-");
         (yyval.node)->left = (yyvsp[0].node);
     }
-#line 2276 "hw1.tab.c"
+#line 2276 "parser.tab.c"
     break;
 
   case 81:
-#line 508 "hw1.y"
+#line 508 "parser.y"
                                     {
         (yyval.node) = make_node(NODE_STRING_ACCESS, NULL);
         (yyval.node)->left = make_node(NODE_VARIABLE, (yyvsp[-3].str));
@@ -2284,11 +2284,11 @@ yyreduce:
         (yyval.node)->right = (yyvsp[-1].node);
         free((yyvsp[-3].str));
     }
-#line 2288 "hw1.tab.c"
+#line 2288 "parser.tab.c"
     break;
 
   case 82:
-#line 515 "hw1.y"
+#line 515 "parser.y"
                                         {
         (yyval.node) = make_node(NODE_STRING_ACCESS, NULL);
         (yyval.node)->left = make_node(NODE_VARIABLE, (yyvsp[-3].str));
@@ -2296,53 +2296,53 @@ yyreduce:
         (yyval.node)->right = (yyvsp[-1].node);
         free((yyvsp[-3].str));
     }
-#line 2300 "hw1.tab.c"
+#line 2300 "parser.tab.c"
     break;
 
   case 83:
-#line 525 "hw1.y"
+#line 525 "parser.y"
                                 {
         (yyval.node) = make_node(NODE_BINARY_OP, "slice");
         (yyval.node)->left = (yyvsp[-2].node);
         (yyval.node)->right = (yyvsp[0].node);
     }
-#line 2310 "hw1.tab.c"
+#line 2310 "parser.tab.c"
     break;
 
   case 84:
-#line 530 "hw1.y"
+#line 530 "parser.y"
                        {
         (yyval.node) = make_node(NODE_BINARY_OP, "slice");
         (yyval.node)->left = make_node(NODE_LITERAL, "0");
         (yyval.node)->left->data_type = TYPE_INT;
         (yyval.node)->right = (yyvsp[0].node);
     }
-#line 2321 "hw1.tab.c"
+#line 2321 "parser.tab.c"
     break;
 
   case 85:
-#line 536 "hw1.y"
+#line 536 "parser.y"
                        {
         (yyval.node) = make_node(NODE_BINARY_OP, "slice");
         (yyval.node)->left = (yyvsp[-1].node);
         (yyval.node)->right = NULL;
     }
-#line 2331 "hw1.tab.c"
+#line 2331 "parser.tab.c"
     break;
 
   case 86:
-#line 541 "hw1.y"
+#line 541 "parser.y"
             {
         (yyval.node) = make_node(NODE_BINARY_OP, "slice");
         (yyval.node)->left = make_node(NODE_LITERAL, "0");
         (yyval.node)->left->data_type = TYPE_INT;
         (yyval.node)->right = NULL;
     }
-#line 2342 "hw1.tab.c"
+#line 2342 "parser.tab.c"
     break;
 
   case 87:
-#line 547 "hw1.y"
+#line 547 "parser.y"
                                                    {
         node_t* slice = make_node(NODE_BINARY_OP, "slice");
         slice->left = (yyvsp[-4].node);
@@ -2352,11 +2352,11 @@ yyreduce:
         (yyval.node)->left = slice;
         (yyval.node)->right = (yyvsp[0].node);
     }
-#line 2356 "hw1.tab.c"
+#line 2356 "parser.tab.c"
     break;
 
 
-#line 2360 "hw1.tab.c"
+#line 2360 "parser.tab.c"
 
       default: break;
     }
@@ -2588,7 +2588,7 @@ yyreturn:
 #endif
   return yyresult;
 }
-#line 558 "hw1.y"
+#line 558 "parser.y"
 
 
 void yyerror(const char* s) {

@@ -12,533 +12,613 @@ void yyerror(const char* s);
 node_t* ast_root = NULL;
 %}
 
-/* Bison parser skeleton for Yacc-like parsers in C
-
-   Copyright (C) 1984, 1989-1990, 2000-2015, 2018-2020 Free Software Foundation,
-   Inc.
-
-   This program is free software: you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation, either version 3 of the License, or
-   (at your option) any later version.
-
-   This program is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
-
-   You should have received a copy of the GNU General Public License
-   along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
-
-/* As a special exception, you may create a larger work that contains
-   part or all of the Bison parser skeleton and distribute that work
-   under terms of your choice, so long as that work isn't itself a
-   parser generator using the skeleton or a modified version thereof
-   as a parser skeleton.  Alternatively, if you modify or redistribute
-   the parser skeleton itself, you may (at your option) remove this
-   special exception, which will cause the skeleton and the resulting
-   Bison output files to be licensed under the GNU General Public
-   License without this special exception.
-
-   This special exception was added by the Free Software Foundation in
-   version 2.2 of Bison.  */
-
-/* Undocumented macros, especially those whose name start with YY_,
-   are private implementation details.  Do not rely on them.  */
-
-#ifndef YY_YY_HW1_TAB_H_INCLUDED
-# define YY_YY_HW1_TAB_H_INCLUDED
-/* Debug traces.  */
-#ifndef YYDEBUG
-# define YYDEBUG 0
-#endif
-#if YYDEBUG
-extern int yydebug;
-#endif
-
-/* Token type.  */
-#ifndef YYTOKENTYPE
-# define YYTOKENTYPE
-  enum yytokentype
-  {
-    ID = 258,
-    INT_LIT = 259,
-    FLOAT_LIT = 260,
-    STRING_LIT = 261,
-    TRUE_LIT = 262,
-    FALSE_LIT = 263,
-    DEF = 264,
-    IF = 265,
-    ELIF = 266,
-    ELSE = 267,
-    WHILE = 268,
-    RETURN = 269,
-    PASS = 270,
-    AND = 271,
-    OR = 272,
-    NOT = 273,
-    IS = 274,
-    INT = 275,
-    FLOAT = 276,
-    BOOL = 277,
-    STRING = 278,
-    GE = 279,
-    LE = 280,
-    EQ = 281,
-    NE = 282,
-    GT = 283,
-    LT = 284,
-    ASSIGN = 285,
-    ARROW = 286,
-    PLUS = 287,
-    MINUS = 288,
-    TIMES = 289,
-    DIVIDE = 290,
-    POW = 291,
-    LPAREN = 292,
-    RPAREN = 293,
-    LBRACE = 294,
-    RBRACE = 295,
-    LBRACKET = 296,
-    RBRACKET = 297,
-    COLON = 298,
-    SEMICOLON = 299,
-    COMMA = 300,
-    UMINUS = 301
-  };
-#endif
-
-/* Value type.  */
-#if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
-union YYSTYPE
-{
-#line 15 "hw1.y"
-
+%union {
     char* str;
     node_t* node;
     data_type_t type;
+}
 
-#line 110 "hw1.tab.h"
+%token <str> ID INT_LIT FLOAT_LIT STRING_LIT TRUE_LIT FALSE_LIT
+%token DEF IF ELIF ELSE WHILE RETURN PASS AND OR NOT IS
+%token INT FLOAT BOOL STRING
+%token GE LE EQ NE GT LT ASSIGN ARROW
+%token PLUS MINUS TIMES DIVIDE POW
+%token LPAREN RPAREN LBRACE RBRACE LBRACKET RBRACKET
+%token COLON SEMICOLON COMMA
 
-};
-typedef union YYSTYPE YYSTYPE;
-# define YYSTYPE_IS_TRIVIAL 1
-# define YYSTYPE_IS_DECLARED 1
-#endif
+%type <node> program function_list function
+%type <node> parameters parameter_list parameter_group param_names param
+%type <node> literal
+%type <node> block variable_declarations variable_declaration variable_list variable_spec
+%type <node> statements statement simple_statement compound_statement
+%type <node> assignment_statement return_statement if_statement while_statement
+%type <node> expression
+%type <node> function_call argument_list
+%type <node> string_access string_slice
 
+%type <type> type
 
-extern YYSTYPE yylval;
+%left OR
+%left AND
+%right NOT
+%left EQ NE
+%left GT LT GE LE IS
+%left PLUS MINUS
+%left TIMES DIVIDE
+%right POW
+%right UMINUS
 
-int yyparse (void);
+%start program
 
-#endif /* !YY_YY_HW1_TAB_H_INCLUDED  */
+%%
 
+program:
+    function_list {
+        ast_root = $1;
+        $$ = $1;
+    }
+;
 
+function_list:
+    function {
+        $$ = $1;
+    }
+    | function_list function {
+        node_t* last = $1;
+        while (last->next) last = last->next;
+        last->next = $2;
+        $$ = $1;
+    }
+;
 
-#ifdef short
-# undef short
-#endif
+function:
+    DEF ID LPAREN parameters RPAREN COLON block {
+        $$ = make_node(NODE_FUNCTION, $2);
+        $$->name = strdup($2);
+        $$->data_type = TYPE_VOID;
+        $$->params = $4;
+        $$->body = $7;
+        free($2);
+    }
+    | DEF ID LPAREN parameters RPAREN ARROW type COLON block {
+        $$ = make_node(NODE_FUNCTION, $2);
+        $$->name = strdup($2);
+        $$->data_type = $7;
+        $$->params = $4;
+        $$->body = $9;
+        free($2);
+    }
+    | DEF ID LPAREN parameters RPAREN COLON simple_statement SEMICOLON {
+        $$ = make_node(NODE_FUNCTION, $2);
+        $$->name = strdup($2);
+        $$->data_type = TYPE_VOID;
+        $$->params = $4;
+        $$->body = $7;
+        free($2);
+    }
+    | DEF ID LPAREN parameters RPAREN ARROW type COLON simple_statement SEMICOLON {
+        $$ = make_node(NODE_FUNCTION, $2);
+        $$->name = strdup($2);
+        $$->data_type = $7;
+        $$->params = $4;
+        $$->body = $9;
+        free($2);
+    }
+;
 
-/* On compilers that do not define __PTRDIFF_MAX__ etc., make sure
-   <limits.h> and (if available) <stdint.h> are included
-   so that the code can choose integer types of a good width.  */
+parameters:
+    /* empty */ {
+        $$ = NULL;
+    }
+    | parameter_list {
+        $$ = $1;
+    }
+;
 
-#ifndef __PTRDIFF_MAX__
-# include <limits.h> /* INFRINGES ON USER NAME SPACE */
-# if defined __STDC_VERSION__ && 199901 <= __STDC_VERSION__
-#  include <stdint.h> /* INFRINGES ON USER NAME SPACE */
-#  define YY_STDINT_H
-# endif
-#endif
+parameter_list:
+    parameter_group {
+        $$ = $1;
+    }
+    | parameter_list SEMICOLON parameter_group {
+        node_t* last = $1;
+        while (last->next) last = last->next;
+        last->next = $3;
+        $$ = $1;
+    }
+;
 
-/* Narrow types that promote to a signed type and that can represent a
-   signed or unsigned integer of at least N bits.  In tables they can
-   save space and decrease cache pressure.  Promoting to a signed type
-   helps avoid bugs in integer arithmetic.  */
+parameter_group:
+    type param_names {
+        // Set type for all parameters in this group
+        node_t* param = $2;
+        while (param) {
+            param->data_type = $1;
+            param = param->next;
+        }
+        $$ = $2;
+    }
+;
 
-#ifdef __INT_LEAST8_MAX__
-typedef __INT_LEAST8_TYPE__ yytype_int8;
-#elif defined YY_STDINT_H
-typedef int_least8_t yytype_int8;
-#else
-typedef signed char yytype_int8;
-#endif
+param_names:
+    param {
+        $$ = $1;
+    }
+    | param_names COMMA param {
+        node_t* last = $1;
+        while (last->next) last = last->next;
+        last->next = $3;
+        $$ = $1;
+    }
+;
 
-#ifdef __INT_LEAST16_MAX__
-typedef __INT_LEAST16_TYPE__ yytype_int16;
-#elif defined YY_STDINT_H
-typedef int_least16_t yytype_int16;
-#else
-typedef short yytype_int16;
-#endif
+param:
+    ID {
+        $$ = make_node(NODE_PARAM, $1);
+        $$->name = strdup($1);
+        $$->has_default = false;
+        free($1);
+    }
+    | ID COLON literal {
+        $$ = make_node(NODE_PARAM, $1);
+        $$->name = strdup($1);
+        $$->has_default = true;
+        $$->default_value = $3;
+        free($1);
+    }
+;
 
-#if defined __UINT_LEAST8_MAX__ && __UINT_LEAST8_MAX__ <= __INT_MAX__
-typedef __UINT_LEAST8_TYPE__ yytype_uint8;
-#elif (!defined __UINT_LEAST8_MAX__ && defined YY_STDINT_H \
-       && UINT_LEAST8_MAX <= INT_MAX)
-typedef uint_least8_t yytype_uint8;
-#elif !defined __UINT_LEAST8_MAX__ && UCHAR_MAX <= INT_MAX
-typedef unsigned char yytype_uint8;
-#else
-typedef short yytype_uint8;
-#endif
+type:
+    INT     { $$ = TYPE_INT; }
+    | FLOAT { $$ = TYPE_FLOAT; }
+    | BOOL  { $$ = TYPE_BOOL; }
+    | STRING { $$ = TYPE_STRING; }
+;
 
-#if defined __UINT_LEAST16_MAX__ && __UINT_LEAST16_MAX__ <= __INT_MAX__
-typedef __UINT_LEAST16_TYPE__ yytype_uint16;
-#elif (!defined __UINT_LEAST16_MAX__ && defined YY_STDINT_H \
-       && UINT_LEAST16_MAX <= INT_MAX)
-typedef uint_least16_t yytype_uint16;
-#elif !defined __UINT_LEAST16_MAX__ && USHRT_MAX <= INT_MAX
-typedef unsigned short yytype_uint16;
-#else
-typedef int yytype_uint16;
-#endif
+literal:
+    INT_LIT {
+        $$ = make_node(NODE_LITERAL, $1);
+        $$->data_type = TYPE_INT;
+        free($1);
+    }
+    | FLOAT_LIT {
+        $$ = make_node(NODE_LITERAL, $1);
+        $$->data_type = TYPE_FLOAT;
+        free($1);
+    }
+    | STRING_LIT {
+        $$ = make_node(NODE_LITERAL, $1);
+        $$->data_type = TYPE_STRING;
+        free($1);
+    }
+    | TRUE_LIT {
+        $$ = make_node(NODE_LITERAL, "True");
+        $$->data_type = TYPE_BOOL;
+        free($1);
+    }
+    | FALSE_LIT {
+        $$ = make_node(NODE_LITERAL, "False");
+        $$->data_type = TYPE_BOOL;
+        free($1);
+    }
+;
 
-#ifndef YYPTRDIFF_T
-# if defined __PTRDIFF_TYPE__ && defined __PTRDIFF_MAX__
-#  define YYPTRDIFF_T __PTRDIFF_TYPE__
-#  define YYPTRDIFF_MAXIMUM __PTRDIFF_MAX__
-# elif defined PTRDIFF_MAX
-#  ifndef ptrdiff_t
-#   include <stddef.h> /* INFRINGES ON USER NAME SPACE */
-#  endif
-#  define YYPTRDIFF_T ptrdiff_t
-#  define YYPTRDIFF_MAXIMUM PTRDIFF_MAX
-# else
-#  define YYPTRDIFF_T long
-#  define YYPTRDIFF_MAXIMUM LONG_MAX
-# endif
-#endif
+block:
+    LBRACE variable_declarations statements RBRACE {
+        $$ = make_node(NODE_BLOCK, NULL);
+        $$->left = $2;  // declarations
+        $$->body = $3;  // statements
+    }
+;
 
-#ifndef YYSIZE_T
-# ifdef __SIZE_TYPE__
-#  define YYSIZE_T __SIZE_TYPE__
-# elif defined size_t
-#  define YYSIZE_T size_t
-# elif defined __STDC_VERSION__ && 199901 <= __STDC_VERSION__
-#  include <stddef.h> /* INFRINGES ON USER NAME SPACE */
-#  define YYSIZE_T size_t
-# else
-#  define YYSIZE_T unsigned
-# endif
-#endif
+variable_declarations:
+    /* empty */ {
+        $$ = NULL;
+    }
+    | variable_declarations variable_declaration {
+        if ($1) {
+            node_t* last = $1;
+            while (last->next) last = last->next;
+            last->next = $2;
+            $$ = $1;
+        } else {
+            $$ = $2;
+        }
+    }
+;
 
-#define YYSIZE_MAXIMUM                                  \
-  YY_CAST (YYPTRDIFF_T,                                 \
-           (YYPTRDIFF_MAXIMUM < YY_CAST (YYSIZE_T, -1)  \
-            ? YYPTRDIFF_MAXIMUM                         \
-            : YY_CAST (YYSIZE_T, -1)))
+variable_declaration:
+    type variable_list SEMICOLON {
+        // Set type for all variables in the list
+        node_t* var = $2;
+        while (var) {
+            var->data_type = $1;
+            var = var->next;
+        }
+        $$ = $2;
+    }
+;
 
-#define YYSIZEOF(X) YY_CAST (YYPTRDIFF_T, sizeof (X))
+variable_list:
+    variable_spec {
+        $$ = $1;
+    }
+    | variable_list COMMA variable_spec {
+        node_t* last = $1;
+        while (last->next) last = last->next;
+        last->next = $3;
+        $$ = $1;
+    }
+;
 
-/* Stored state numbers (used for stacks). */
-typedef yytype_uint8 yy_state_t;
+variable_spec:
+    ID {
+        $$ = make_node(NODE_VARIABLE, $1);
+        $$->name = strdup($1);
+        free($1);
+    }
+    | ID ASSIGN expression {
+        $$ = make_node(NODE_VARIABLE, $1);
+        $$->name = strdup($1);
+        $$->right = $3;  // initialization expression
+        free($1);
+    }
+;
 
-/* State numbers in computations.  */
-typedef int yy_state_fast_t;
+statements:
+    /* empty */ {
+        $$ = NULL;
+    }
+    | statements statement {
+        if ($1) {
+            node_t* last = $1;
+            while (last->next) last = last->next;
+            last->next = $2;
+            $$ = $1;
+        } else {
+            $$ = $2;
+        }
+    }
+;
 
-#ifndef YY_
-# if defined YYENABLE_NLS && YYENABLE_NLS
-#  if ENABLE_NLS
-#   include <libintl.h> /* INFRINGES ON USER NAME SPACE */
-#   define YY_(Msgid) dgettext ("bison-runtime", Msgid)
-#  endif
-# endif
-# ifndef YY_
-#  define YY_(Msgid) Msgid
-# endif
-#endif
+statement:
+    simple_statement SEMICOLON {
+        $$ = $1;
+    }
+    | compound_statement {
+        $$ = $1;
+    }
+;
 
-#ifndef YY_ATTRIBUTE_PURE
-# if defined __GNUC__ && 2 < __GNUC__ + (96 <= __GNUC_MINOR__)
-#  define YY_ATTRIBUTE_PURE __attribute__ ((__pure__))
-# else
-#  define YY_ATTRIBUTE_PURE
-# endif
-#endif
+simple_statement:
+    assignment_statement {
+        $$ = $1;
+    }
+    | function_call {
+        $$ = $1;
+    }
+    | return_statement {
+        $$ = $1;
+    }
+    | PASS {
+        $$ = make_node(NODE_PASS, NULL);
+    }
+;
 
-#ifndef YY_ATTRIBUTE_UNUSED
-# if defined __GNUC__ && 2 < __GNUC__ + (7 <= __GNUC_MINOR__)
-#  define YY_ATTRIBUTE_UNUSED __attribute__ ((__unused__))
-# else
-#  define YY_ATTRIBUTE_UNUSED
-# endif
-#endif
+compound_statement:
+    if_statement {
+        $$ = $1;
+    }
+    | while_statement {
+        $$ = $1;
+    }
+    | block {
+        $$ = $1;
+    }
+;
 
-/* Suppress unused-variable warnings by "using" E.  */
-#if ! defined lint || defined __GNUC__
-# define YYUSE(E) ((void) (E))
-#else
-# define YYUSE(E) /* empty */
-#endif
+assignment_statement:
+    ID ASSIGN expression {
+        $$ = make_node(NODE_ASSIGN, NULL);
+        $$->left = make_node(NODE_VARIABLE, $1);
+        $$->left->name = strdup($1);
+        $$->right = $3;
+        free($1);
+    }
+    | string_access ASSIGN expression {
+        $$ = make_node(NODE_ASSIGN, NULL);
+        $$->left = $1;
+        $$->right = $3;
+    }
+;
 
-#if defined __GNUC__ && ! defined __ICC && 407 <= __GNUC__ * 100 + __GNUC_MINOR__
-/* Suppress an incorrect diagnostic about yylval being uninitialized.  */
-# define YY_IGNORE_MAYBE_UNINITIALIZED_BEGIN                            \
-    _Pragma ("GCC diagnostic push")                                     \
-    _Pragma ("GCC diagnostic ignored \"-Wuninitialized\"")              \
-    _Pragma ("GCC diagnostic ignored \"-Wmaybe-uninitialized\"")
-# define YY_IGNORE_MAYBE_UNINITIALIZED_END      \
-    _Pragma ("GCC diagnostic pop")
-#else
-# define YY_INITIAL_VALUE(Value) Value
-#endif
-#ifndef YY_IGNORE_MAYBE_UNINITIALIZED_BEGIN
-# define YY_IGNORE_MAYBE_UNINITIALIZED_BEGIN
-# define YY_IGNORE_MAYBE_UNINITIALIZED_END
-#endif
-#ifndef YY_INITIAL_VALUE
-# define YY_INITIAL_VALUE(Value) /* Nothing. */
-#endif
+return_statement:
+    RETURN {
+        $$ = make_node(NODE_RETURN, NULL);
+    }
+    | RETURN expression {
+        $$ = make_node(NODE_RETURN, NULL);
+        $$->left = $2;
+    }
+;
 
-#if defined __cplusplus && defined __GNUC__ && ! defined __ICC && 6 <= __GNUC__
-# define YY_IGNORE_USELESS_CAST_BEGIN                          \
-    _Pragma ("GCC diagnostic push")                            \
-    _Pragma ("GCC diagnostic ignored \"-Wuseless-cast\"")
-# define YY_IGNORE_USELESS_CAST_END            \
-    _Pragma ("GCC diagnostic pop")
-#endif
-#ifndef YY_IGNORE_USELESS_CAST_BEGIN
-# define YY_IGNORE_USELESS_CAST_BEGIN
-# define YY_IGNORE_USELESS_CAST_END
-#endif
+if_statement:
+    IF expression COLON block {
+        $$ = make_node(NODE_IF, NULL);
+        $$->condition = $2;
+        $$->if_body = $4;
+    }
+    | IF expression COLON simple_statement SEMICOLON {
+        $$ = make_node(NODE_IF, NULL);
+        $$->condition = $2;
+        $$->if_body = $4;
+    }
+    | IF expression COLON block ELSE COLON block {
+        $$ = make_node(NODE_IF, NULL);
+        $$->condition = $2;
+        $$->if_body = $4;
+        $$->else_body = $7;
+    }
+    | IF expression COLON simple_statement SEMICOLON ELSE COLON simple_statement SEMICOLON {
+        $$ = make_node(NODE_IF, NULL);
+        $$->condition = $2;
+        $$->if_body = $4;
+        $$->else_body = $8;
+    }
+;
 
+while_statement:
+    WHILE expression COLON block {
+        $$ = make_node(NODE_WHILE, NULL);
+        $$->condition = $2;
+        $$->body = $4;
+    }
+    | WHILE expression COLON simple_statement SEMICOLON {
+        $$ = make_node(NODE_WHILE, NULL);
+        $$->condition = $2;
+        $$->body = $4;
+    }
+;
 
-#define YY_ASSERT(E) ((void) (0 && (E)))
+function_call:
+    ID LPAREN RPAREN {
+        $$ = make_node(NODE_CALL, $1);
+        $$->name = strdup($1);
+        $$->args = NULL;
+        free($1);
+    }
+    | ID LPAREN argument_list RPAREN {
+        $$ = make_node(NODE_CALL, $1);
+        $$->name = strdup($1);
+        $$->args = $3;
+        free($1);
+    }
+;
 
-#if ! defined yyoverflow || YYERROR_VERBOSE
+argument_list:
+    expression {
+        $$ = $1;
+    }
+    | argument_list COMMA expression {
+        node_t* last = $1;
+        while (last->next) last = last->next;
+        last->next = $3;
+        $$ = $1;
+    }
+;
 
-/* The parser invokes alloca or malloc; define the necessary symbols.  */
+expression:
+    literal {
+        $$ = $1;
+    }
+    | ID {
+        $$ = make_node(NODE_VARIABLE, $1);
+        $$->name = strdup($1);
+        free($1);
+    }
+    | function_call {
+        $$ = $1;
+    }
+    | string_access {
+        $$ = $1;
+    }
+    | LPAREN expression RPAREN {
+        $$ = $2;
+    }
+    | expression PLUS expression {
+        $$ = make_node(NODE_BINARY_OP, "+");
+        $$->left = $1;
+        $$->right = $3;
+    }
+    | expression MINUS expression {
+        $$ = make_node(NODE_BINARY_OP, "-");
+        $$->left = $1;
+        $$->right = $3;
+    }
+    | expression TIMES expression {
+        $$ = make_node(NODE_BINARY_OP, "*");
+        $$->left = $1;
+        $$->right = $3;
+    }
+    | expression DIVIDE expression {
+        $$ = make_node(NODE_BINARY_OP, "/");
+        $$->left = $1;
+        $$->right = $3;
+    }
+    | expression POW expression {
+        $$ = make_node(NODE_BINARY_OP, "**");
+        $$->left = $1;
+        $$->right = $3;
+    }
+    | expression GT expression {
+        $$ = make_node(NODE_BINARY_OP, ">");
+        $$->left = $1;
+        $$->right = $3;
+    }
+    | expression LT expression {
+        $$ = make_node(NODE_BINARY_OP, "<");
+        $$->left = $1;
+        $$->right = $3;
+    }
+    | expression GE expression {
+        $$ = make_node(NODE_BINARY_OP, ">=");
+        $$->left = $1;
+        $$->right = $3;
+    }
+    | expression LE expression {
+        $$ = make_node(NODE_BINARY_OP, "<=");
+        $$->left = $1;
+        $$->right = $3;
+    }
+    | expression EQ expression {
+        $$ = make_node(NODE_BINARY_OP, "==");
+        $$->left = $1;
+        $$->right = $3;
+    }
+    | expression NE expression {
+        $$ = make_node(NODE_BINARY_OP, "!=");
+        $$->left = $1;
+        $$->right = $3;
+    }
+    | expression AND expression {
+        $$ = make_node(NODE_BINARY_OP, "and");
+        $$->left = $1;
+        $$->right = $3;
+    }
+    | expression OR expression {
+        $$ = make_node(NODE_BINARY_OP, "or");
+        $$->left = $1;
+        $$->right = $3;
+    }
+    | expression IS expression {
+        $$ = make_node(NODE_BINARY_OP, "is");
+        $$->left = $1;
+        $$->right = $3;
+    }
+    | NOT expression {
+        $$ = make_node(NODE_UNARY_OP, "not");
+        $$->left = $2;
+    }
+    | MINUS expression %prec UMINUS {
+        $$ = make_node(NODE_UNARY_OP, "-");
+        $$->left = $2;
+    }
+;
 
-# ifdef YYSTACK_USE_ALLOCA
-#  if YYSTACK_USE_ALLOCA
-#   ifdef __GNUC__
-#    define YYSTACK_ALLOC __builtin_alloca
-#   elif defined __BUILTIN_VA_ARG_INCR
-#    include <alloca.h> /* INFRINGES ON USER NAME SPACE */
-#   elif defined _AIX
-#    define YYSTACK_ALLOC __alloca
-#   elif defined _MSC_VER
-#    include <malloc.h> /* INFRINGES ON USER NAME SPACE */
-#    define alloca _alloca
-#   else
-#    define YYSTACK_ALLOC alloca
-#    if ! defined _ALLOCA_H && ! defined EXIT_SUCCESS
-#     include <stdlib.h> /* INFRINGES ON USER NAME SPACE */
-      /* Use EXIT_SUCCESS as a witness for stdlib.h.  */
-#     ifndef EXIT_SUCCESS
-#      define EXIT_SUCCESS 0
-#     endif
-#    endif
-#   endif
-#  endif
-# endif
+string_access:
+    ID LBRACKET expression RBRACKET {
+        $$ = make_node(NODE_STRING_ACCESS, NULL);
+        $$->left = make_node(NODE_VARIABLE, $1);
+        $$->left->name = strdup($1);
+        $$->right = $3;
+        free($1);
+    }
+    | ID LBRACKET string_slice RBRACKET {
+        $$ = make_node(NODE_STRING_ACCESS, NULL);
+        $$->left = make_node(NODE_VARIABLE, $1);
+        $$->left->name = strdup($1);
+        $$->right = $3;
+        free($1);
+    }
+;
 
-# ifdef YYSTACK_ALLOC
-   /* Pacify GCC's 'empty if-body' warning.  */
-#  define YYSTACK_FREE(Ptr) do { /* empty */; } while (0)
-#  ifndef YYSTACK_ALLOC_MAXIMUM
-    /* The OS might guarantee only one guard page at the bottom of the stack,
-       and a page size can be as small as 4096 bytes.  So we cannot safely
-       invoke alloca (N) if N exceeds 4096.  Use a slightly smaller number
-       to allow for a few compiler-allocated temporary stack slots.  */
-#   define YYSTACK_ALLOC_MAXIMUM 4032 /* reasonable circa 2006 */
-#  endif
-# else
-#  define YYSTACK_ALLOC YYMALLOC
-#  define YYSTACK_FREE YYFREE
-#  ifndef YYSTACK_ALLOC_MAXIMUM
-#   define YYSTACK_ALLOC_MAXIMUM YYSIZE_MAXIMUM
-#  endif
-#  if (defined __cplusplus && ! defined EXIT_SUCCESS \
-       && ! ((defined YYMALLOC || defined malloc) \
-             && (defined YYFREE || defined free)))
-#   include <stdlib.h> /* INFRINGES ON USER NAME SPACE */
-#   ifndef EXIT_SUCCESS
-#    define EXIT_SUCCESS 0
-#   endif
-#  endif
-#  ifndef YYMALLOC
-#   define YYMALLOC malloc
-#   if ! defined malloc && ! defined EXIT_SUCCESS
-void *malloc (YYSIZE_T); /* INFRINGES ON USER NAME SPACE */
-#   endif
-#  endif
-#  ifndef YYFREE
-#   define YYFREE free
-#   if ! defined free && ! defined EXIT_SUCCESS
-void free (void *); /* INFRINGES ON USER NAME SPACE */
-#   endif
-#  endif
-# endif
-#endif /* ! defined yyoverflow || YYERROR_VERBOSE */
+string_slice:
+    expression COLON expression {
+        $$ = make_node(NODE_BINARY_OP, "slice");
+        $$->left = $1;
+        $$->right = $3;
+    }
+    | COLON expression {
+        $$ = make_node(NODE_BINARY_OP, "slice");
+        $$->left = make_node(NODE_LITERAL, "0");
+        $$->left->data_type = TYPE_INT;
+        $$->right = $2;
+    }
+    | expression COLON {
+        $$ = make_node(NODE_BINARY_OP, "slice");
+        $$->left = $1;
+        $$->right = NULL;
+    }
+    | COLON {
+        $$ = make_node(NODE_BINARY_OP, "slice");
+        $$->left = make_node(NODE_LITERAL, "0");
+        $$->left->data_type = TYPE_INT;
+        $$->right = NULL;
+    }
+    | expression COLON expression COLON expression {
+        node_t* slice = make_node(NODE_BINARY_OP, "slice");
+        slice->left = $1;
+        slice->right = $3;
+        
+        $$ = make_node(NODE_BINARY_OP, "slice_step");
+        $$->left = slice;
+        $$->right = $5;
+    }
+;
 
+%%
 
-#if (! defined yyoverflow \
-     && (! defined __cplusplus \
-         || (defined YYSTYPE_IS_TRIVIAL && YYSTYPE_IS_TRIVIAL)))
+void yyerror(const char* s) {
+    printf("❌ \033[1;31mSYNTAX ERROR\033[0m on line \033[1;33m%d\033[0m: \033[1;37m%s\033[0m\n", line_number, s);
+    printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+    error_count++;
+}
 
-/* A type that is properly aligned for any stack member.  */
-union yyalloc
-{
-  yy_state_t yyss_alloc;
-  YYSTYPE yyvs_alloc;
-};
-
-/* The size of the maximum gap between one aligned stack and the next.  */
-# define YYSTACK_GAP_MAXIMUM (YYSIZEOF (union yyalloc) - 1)
-
-/* The size of an array large to enough to hold all stacks, each with
-   N elements.  */
-# define YYSTACK_BYTES(N) \
-     ((N) * (YYSIZEOF (yy_state_t) + YYSIZEOF (YYSTYPE)) \
-      + YYSTACK_GAP_MAXIMUM)
-
-# define YYCOPY_NEEDED 1
-
-/* Relocate STACK from its old location to the new one.  The
-   local variables YYSIZE and YYSTACKSIZE give the old and new number of
-   elements in the stack, and YYPTR gives the new location of the
-   stack.  Advance YYPTR to a properly aligned location for the next
-   stack.  */
-# define YYSTACK_RELOCATE(Stack_alloc, Stack)                           \
-    do                                                                  \
-      {                                                                 \
-        YYPTRDIFF_T yynewbytes;                                         \
-        YYCOPY (&yyptr->Stack_alloc, Stack, yysize);                    \
-        Stack = &yyptr->Stack_alloc;                                    \
-        yynewbytes = yystacksize * YYSIZEOF (*Stack) + YYSTACK_GAP_MAXIMUM; \
-        yyptr += yynewbytes / YYSIZEOF (*yyptr);                        \
-      }                                                                 \
-    while (0)
-
-#endif
-
-#if defined YYCOPY_NEEDED && YYCOPY_NEEDED
-/* Copy COUNT objects from SRC to DST.  The source and destination do
-   not overlap.  */
-# ifndef YYCOPY
-#  if defined __GNUC__ && 1 < __GNUC__
-#   define YYCOPY(Dst, Src, Count) \
-      __builtin_memcpy (Dst, Src, YY_CAST (YYSIZE_T, (Count)) * sizeof (*(Src)))
-#  else
-#   define YYCOPY(Dst, Src, Count)              \
-      do                                        \
-        {                                       \
-          YYPTRDIFF_T yyi;                      \
-          for (yyi = 0; yyi < (Count); yyi++)   \
-            (Dst)[yyi] = (Src)[yyi];            \
-        }                                       \
-      while (0)
-#  endif
-# endif
-#endif /* !YYCOPY_NEEDED */
-
-/* YYFINAL -- State number of the termination state.  */
-#define YYFINAL  6
-/* YYLAST -- Last index in YYTABLE.  */
-#define YYLAST   342
-
-/* YYNTOKENS -- Number of terminals.  */
-#define YYNTOKENS  47
-/* YYNNTS -- Number of nonterminals.  */
-#define YYNNTS  29
-/* YYNRULES -- Number of rules.  */
-#define YYNRULES  87
-/* YYNSTATES -- Number of states.  */
-#define YYNSTATES  151
-
-#define YYUNDEFTOK  2
-#define YYMAXUTOK   301
-
-
-/* YYTRANSLATE(TOKEN-NUM) -- Symbol number corresponding to TOKEN-NUM
-   as returned by yylex, with out-of-bounds checking.  */
-#define YYTRANSLATE(YYX)                                                \
-  (0 <= (YYX) && (YYX) <= YYMAXUTOK ? yytranslate[YYX] : YYUNDEFTOK)
-
-/* YYTRANSLATE[TOKEN-NUM] -- Symbol number corresponding to TOKEN-NUM
-   as returned by yylex.  */
-static const yytype_int8 yytranslate[] =
-{
-       0,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
+int main(int argc, char** argv) {
+    if (argc != 2) {
+        fprintf(stderr, "Usage: %s <input_file>\n", argv[0]);
+        return 1;
+    }
+    
+    FILE* input = fopen(argv[1], "r");
+    if (!input) {
+        fprintf(stderr, "Error: Could not open file %s\n", argv[1]);
+        return 1;
+    }
+    
+    yyin = input;
+    
+    printf("🔥 Starting Compilation Process...\n");
+    printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+    
+    if (yyparse() == 0 && error_count == 0) {
+        printf("✅ Syntax Analysis: PASSED\n");
+        printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+        
+        if (ast_root) {
+            printf("🔍 Starting Semantic Analysis...\n");
+            analyze_program(ast_root);
+            
+            if (error_count == 0) {
+                printf("✅ Semantic Analysis: PASSED\n");
+                printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+                printf("🌳 ABSTRACT SYNTAX TREE (AST)\n");
+                printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+                print_ast(ast_root, 0);
+                printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+                
+                // AC3 Code Generation
+                printf("⚡ Starting AC3 Code Generation...\n");
+                printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+                generate_ac3_code(ast_root);
+                printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+                
+                printf("🎉 \033[1;32mCOMPILATION SUCCESSFUL!\033[0m All phases completed without errors.\n");
+                printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+            } else {
+                printf("❌ Semantic Analysis: FAILED with %d errors.\n", error_count);
+                printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+            }
+            
+            free_node(ast_root);
+        } else {
+            printf("❌ Error: Empty program - no AST generated\n");
+            printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+        }
+    } else {
+        printf("❌ Compilation FAILED - Syntax errors detected\n");
+        printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+    }
+    
+    fclose(input);
+    return error_count > 0 ? 1 : 0;
+}
