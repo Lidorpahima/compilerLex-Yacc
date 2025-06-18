@@ -21,6 +21,7 @@ string_literal_sq \'([^\'\n]*)\'
 %%
 
 "def"           { return DEF; }
+"call"          { return CALL; }
 "if"            { return IF; }
 "elif"          { return ELIF; }
 "else"          { return ELSE; }
@@ -44,10 +45,17 @@ string_literal_sq \'([^\'\n]*)\'
 "<="            { return LE; }
 "=="            { return EQ; }
 "!="            { return NE; }
-">"             { return GT; }
-"<"             { return LT; }
 "**"            { return POW; }
 "->"            { return ARROW; }
+">"[ \t]+"="    { return GE; }
+"<"[ \t]+"="    { return LE; }
+"="[ \t]+"="    { return EQ; }
+"!"[ \t]+"="    { return NE; }
+"*"[ \t]+"*"    { return POW; }
+"-"[ \t]+">"    { return ARROW; }
+"!"             { return NOT; }
+">"             { return GT; }
+"<"             { return LT; }
 
 "="             { return ASSIGN; }
 "+"             { return PLUS; }

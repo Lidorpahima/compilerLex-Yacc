@@ -11,4 +11,4 @@ make
 make test
 
 # Or run manually:
-# ./compiler test.code
+./compiler test.code

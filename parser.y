@@ -19,7 +19,7 @@ node_t* ast_root = NULL;
 }
 
 %token <str> ID INT_LIT FLOAT_LIT STRING_LIT TRUE_LIT FALSE_LIT
-%token DEF IF ELIF ELSE WHILE RETURN PASS AND OR NOT IS
+%token DEF CALL IF ELIF ELSE WHILE RETURN PASS AND OR NOT IS
 %token INT FLOAT BOOL STRING
 %token GE LE EQ NE GT LT ASSIGN ARROW
 %token PLUS MINUS TIMES DIVIDE POW
@@ -391,6 +391,18 @@ function_call:
         $$->name = strdup($1);
         $$->args = $3;
         free($1);
+    }
+    | CALL ID LPAREN RPAREN {
+        $$ = make_node(NODE_CALL, $2);
+        $$->name = strdup($2);
+        $$->args = NULL;
+        free($2);
+    }
+    | CALL ID LPAREN argument_list RPAREN {
+        $$ = make_node(NODE_CALL, $2);
+        $$->name = strdup($2);
+        $$->args = $4;
+        free($2);
     }
 ;
 
