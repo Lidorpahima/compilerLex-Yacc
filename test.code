@@ -1,22 +1,18 @@
- 
-def A1(float c) -> int: { 
- 
-     int  x2 , x1; 
-     x1=25; 
-     if x1 ! = 25 or c == 2.89: 
-         x2 = x1 - 5; 
-    else: 
-         x2 = x1 + 5; 
-     return x1 * x2; 
-} 
- 
-def __main__ ():{ 
- 
-     int a, aa; 
-    a=5; 
-    while a < 100:{ 
-     
-       aa=call A1(8.12); 
-       a = aa + a; 
-    } 
+def A1(float c) -> int: {
+ int x2 , x1;
+ x1=25;
+ if x1 ! = 25 or c == 2.89:
+ x2 = x1 - 5;
+ else:
+ x2 = x1 + 5;
+ return x1 * x2;
+}
+def __main__ ():{
+ int a, aa;
+ a=5;
+ while a < 100:{
+
+ aa=A1(8.12);
+ a = aa + a;
+ }
 }

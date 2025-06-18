@@ -378,6 +378,14 @@ bool types_compatible(data_type_t expected, data_type_t actual) {
     return false;
 }
 
+// Function declarations
+int count_local_variables(node_t* body);
+int estimate_temp_variables(node_t* body);
+void simulate_code_generation(node_t* func);
+int count_actual_local_variables(node_t* body);
+void simulate_statement_generation(node_t* stmt);
+void simulate_expression_generation(node_t* expr);
+
 // Count parameters
 int count_parameters(node_t* params) {
     if (!params) return 0;
@@ -766,9 +774,38 @@ char* generate_new_label(void) {
 }
 
 int calculate_frame_size(node_t* func) {
-    // Basic frame size calculation - can be enhanced
+    // Save original temp counter
+    int original_temp = temp_counter;
+    temp_counter = 0;
+    
+    // Run a simulation of code generation to count temps
+    simulate_code_generation(func);
+    
+    int actual_temps = temp_counter;
+    
+    // Restore temp counter
+    temp_counter = original_temp;
+    
+    int size = 0;
+    
+    // Count parameters
     int param_count = count_parameters(func->params);
-    return 20 + param_count * 4; // Base + parameters
+    size += param_count * 4; // Each parameter = 4 bytes
+    
+    // Count local variables by traversing the AST properly
+    int local_vars = count_actual_local_variables(func->body);
+    size += local_vars * 4; // Each local var = 4 bytes
+    
+    // Add actual temporary variables
+    size += actual_temps * 4;
+    
+    // Add base frame overhead
+    size += 8; // Base overhead
+    
+    // Align to 8-byte boundary
+    size = ((size + 7) / 8) * 8;
+    
+    return size;
 }
 
 void generate_ac3_code(node_t* root) {
@@ -1096,4 +1133,163 @@ char* generate_expression_ac3(node_t* expr) {
         default:
             return strdup("0");
     }
+}
+
+int count_actual_local_variables(node_t* body) {
+    if (!body || body->type != NODE_BLOCK) return 0;
+    
+    int count = 0;
+    node_t* current = body->left; // Variable declarations are in left
+    
+    while (current) {
+        if (current->type == NODE_VARIABLE) {
+            count++;
+        }
+        current = current->next;
+    }
+    
+    return count;
+}
+
+void simulate_code_generation(node_t* func) {
+    if (!func || !func->body) return;
+    
+    // Simulate generating code for the function body
+    simulate_statement_generation(func->body);
+}
+
+void simulate_statement_generation(node_t* stmt) {
+    if (!stmt) return;
+    
+    switch (stmt->type) {
+        case NODE_BLOCK:
+            if (stmt->body) {
+                simulate_statement_generation(stmt->body);
+            }
+            break;
+            
+        case NODE_ASSIGN:
+            if (stmt->right) {
+                simulate_expression_generation(stmt->right);
+            }
+            break;
+            
+        case NODE_IF:
+            if (stmt->condition) {
+                simulate_expression_generation(stmt->condition);
+            }
+            if (stmt->if_body) {
+                simulate_statement_generation(stmt->if_body);
+            }
+            if (stmt->else_body) {
+                simulate_statement_generation(stmt->else_body);
+            }
+            break;
+            
+        case NODE_WHILE:
+            if (stmt->condition) {
+                simulate_expression_generation(stmt->condition);
+            }
+            if (stmt->body) {
+                simulate_statement_generation(stmt->body);
+            }
+            break;
+            
+        case NODE_RETURN:
+            if (stmt->left) {
+                simulate_expression_generation(stmt->left);
+            }
+            break;
+            
+        default:
+            break;
+    }
+    
+    // Process next statement
+    if (stmt->next) {
+        simulate_statement_generation(stmt->next);
+    }
+}
+
+void simulate_expression_generation(node_t* expr) {
+    if (!expr) return;
+    
+    switch (expr->type) {
+        case NODE_BINARY_OP:
+            if (expr->left) {
+                simulate_expression_generation(expr->left);
+            }
+            if (expr->right) {
+                simulate_expression_generation(expr->right);
+            }
+            temp_counter++; // Binary operation creates a temp
+            break;
+            
+        case NODE_CALL:
+            if (expr->args) {
+                simulate_expression_generation(expr->args);
+            }
+            temp_counter++; // Function call result
+            break;
+            
+        case NODE_UNARY_OP:
+            if (expr->left) {
+                simulate_expression_generation(expr->left);
+            }
+            temp_counter++; // Unary operation creates a temp
+            break;
+            
+        default:
+            // Literals and variables don't create temps
+            break;
+    }
+}
+
+// ...existing code...
+int count_local_variables(node_t* body) {
+    if (!body) return 0;
+    
+    int count = 0;
+    node_t* current = body;
+    
+    while (current) {
+        if (current->type == NODE_VARIABLE) {
+            count++;
+        } else if (current->left) {
+            count += count_local_variables(current->left);
+        }
+        if (current->right) {
+            count += count_local_variables(current->right);
+        }
+        current = current->next;
+    }
+    
+    return count;
+}
+
+int estimate_temp_variables(node_t* body) {
+    if (!body) return 0;
+    
+    // Estimate based on complexity of expressions
+    // For now, simple heuristic: 2 temps per binary operation
+    int temp_count = 0;
+    node_t* current = body;
+    
+    while (current) {
+        if (current->type == NODE_BINARY_OP) {
+            temp_count += 2;
+        } else if (current->type == NODE_CALL) {
+            temp_count += 1;
+        }
+        
+        if (current->left) {
+            temp_count += estimate_temp_variables(current->left);
+        }
+        if (current->right) {
+            temp_count += estimate_temp_variables(current->right);
+        }
+        current = current->next;
+    }
+    
+    return temp_count;
 }
